@@ -145,6 +145,7 @@ jobs:
             - Push-mode online threshold raised from 10 s to 15 s to avoid offline flicker on high-latency links.
             - New per-system admin toggles in the edit dialog: "Show on homepage" and "Show TCPing" (both default on). Hidden systems remain in the API and the admin page.
             - Static path hardening: traversal probes such as `/../admin` no longer resolve to a page.
+            - Proxy handling: `X-Forwarded-For` is now read from the trusted side of the chain, so a client behind a CDN listed in `TRUSTED_PROXIES` can no longer spoof its address to bypass the login rate limit or the per-IP SSE cap. The client lets the HTTP transport negotiate compression, so registration responses gzipped by a CDN are decoded correctly.
             - `docker-compose.yaml` sets a 45 s stop grace period so the database always closes cleanly.
             - Client: constant-time secret comparison.
 
