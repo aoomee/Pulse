@@ -1310,7 +1310,9 @@ const apiBase = apiBaseProp ?? '';
       os: String(item.os || ''),
       os_icon: String(item.os_icon || ''),
       alert: Boolean(item.alert || false),
-      order: Number(item.order || 0)
+      order: Number(item.order || 0),
+      // Admin toggle: absent on the wire when false (omitempty)
+      hide_tcping: item.hide_tcping === true
     };
   }
   
@@ -3518,7 +3520,7 @@ const apiBase = apiBaseProp ?? '';
       // inside one microtask the browser only commits a single layout.
       if (loadingIndicator) loadingIndicator.style.display = 'none';
 
-      body.innerHTML = items.map(item => renderRow(item, tcpingConfigured)).join('');
+      body.innerHTML = items.map(item => renderRow(item, tcpingConfigured && item.hide_tcping !== true)).join('');
       currentData = newData;
 
       // Row-level stagger-in. Each row animates at the ALREADY-settled
@@ -3581,6 +3583,12 @@ const apiBase = apiBaseProp ?? '';
       
       if (!existingRow) {
         // New row needs to be added
+        rowsToAdd.push({ item, index });
+        hasChanges = true;
+      } else if (oldItem && oldItem.hide_tcping !== normalizedItem.hide_tcping) {
+        // Admin flipped "show TCPing": the panel is part of the row markup,
+        // so rebuild the row (remove + add) instead of patching in place.
+        rowsToRemove.push(item.id);
         rowsToAdd.push({ item, index });
         hasChanges = true;
       } else if (hasChanged(oldItem, normalizedItem)) {
@@ -3684,7 +3692,7 @@ const apiBase = apiBaseProp ?? '';
         }
         
         // Use cached tcping config status or check if needed
-        const rowHTML = renderRow(item, tcpingConfigured);
+        const rowHTML = renderRow(item, tcpingConfigured && item.hide_tcping !== true);
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = rowHTML;
         const systemRowElement = tempDiv.firstElementChild;
@@ -3822,6 +3830,9 @@ const apiBase = apiBaseProp ?? '';
   // renderData() only. Never call this directly.
   async function renderDataInternal(data) {
     initialDataRendered = true;
+    // Admin per-system toggle: `hide_on_home` systems stay in the API and
+    // the admin page but never reach the public table.
+    data = data.filter((sys) => !(sys && sys.hide_on_home === true));
     if (data.length === 0) {
       showEmpty();
       // Materialise the header (it ships as display:none during the
