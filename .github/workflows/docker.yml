@@ -134,35 +134,35 @@ jobs:
           body: |
             ## Release v${{ steps.version.outputs.version }}
 
-            v${{ steps.version.outputs.version }} focuses on data integrity, CDN friendliness, and hardening the push/TCPing paths while keeping existing clients and databases compatible.
+            v${{ steps.version.outputs.version }} makes the server hold up under very large agent counts and adds per-system homepage visibility controls, while keeping existing clients and databases compatible.
 
             ### Highlights
 
-            - Preserves multiple TCPing samples that arrive in the same second or with the same timestamp instead of overwriting older samples.
-            - Persists push-mode metrics and TCPing results in a single bbolt transaction, reducing write amplification without changing the wire protocol.
-            - Keeps TCPing history cache target-scoped and bounded; oversized history responses are still returned in full and only skip the in-memory cache copy.
-            - Adds startup cleanup for TCPing history older than 24 hours so large databases do not wait for the hourly cleaner after restart.
-            - Adds CDN-friendly cache headers: hashed `/_astro/*` assets are immutable for CDN/browser caches, while HTML and API/SSE responses remain fresh and safe.
-            - Hardens client IP handling behind trusted proxies and avoids logging token-bearing query strings in bundled Nginx access logs.
-            - Improves backup/restore support for Docker named volumes by detecting the actual `/app/data` mount from the running container.
-            - Fixes client request-context cancellation so registration and push responses can reliably read returned TCPing configuration.
-            - Preserves Pulse-Hotaru navbar compatibility flags (`hide_tags`, `hide_cards`) for future backend unification.
+            - Geo-IP lookups no longer run on the push/poll request path. A cache miss queues a background job (fixed worker pool, bounded queue, one in-flight lookup per IP) and the persisted location is reused while the public IP is unchanged. Previously, with the lookup services slow or blocked, 100 agents could drive the server to thousands of goroutines and zero successful pushes for minutes after every restart.
+            - SSE hardening: per-write deadlines so half-open viewers cannot pin a goroutine forever; configurable stream caps (`SSE_MAX_STREAMS`, `SSE_MAX_STREAMS_PER_IP`) that never apply to admin sessions; snapshots are streamed without per-subscriber copies and new subscribers reuse the broadcaster's latest payload.
+            - TCPing batches keep the agent's real measurement timestamps (outages show as gaps instead of a burst of fake points), clock skew is corrected from the newest sample, re-sent batches are idempotent, and the per-target "latest" value can no longer be frozen by a future-dated record.
+            - Agent writes merge admin-owned fields (name, tags, order, secret, visibility toggles) inside the write transaction, so a concurrent admin edit is never reverted by a push or poll.
+            - Push-mode online threshold raised from 10 s to 15 s to avoid offline flicker on high-latency links.
+            - New per-system admin toggles in the edit dialog: "Show on homepage" and "Show TCPing" (both default on). Hidden systems remain in the API and the admin page.
+            - Static path hardening: traversal probes such as `/../admin` no longer resolve to a page.
+            - `docker-compose.yaml` sets a 45 s stop grace period so the database always closes cleanly.
+            - Client: constant-time secret comparison.
+
+            Load-tested at 1000 push agents (each sending TCPing results every 3 s) on an emulated 1-core box: about 25% CPU, about 30 MB RSS, zero failed pushes.
 
             ### Compatibility
 
-            - Existing clients continue to work.
+            - Existing clients continue to work; the new visibility fields are optional and ignored by older agents.
             - Existing `metrics.db` files remain readable, including legacy TCPing key formats.
             - Existing Docker named-volume and bind-mount deployments are supported.
-            - `/api/*` and `/api/events` intentionally remain non-cacheable; only static assets should produce CDN cache hits.
+            - Behind a reverse proxy or CDN that is not listed in `TRUSTED_PROXIES`, all viewers share the proxy address for rate limits and SSE caps; set `TRUSTED_PROXIES` or raise `SSE_MAX_STREAMS_PER_IP`.
 
             ### Verified
 
-            - Server tests and vet checks.
-            - Client build/test checks.
+            - Server vet, race-enabled tests (22 tests) and build.
+            - Client vet and build.
             - Frontend Astro build.
-            - Shell script syntax checks.
-            - Docker image build and runtime health check.
-            - Nginx configuration validation and cache-header inspection.
+            - Load tests at 100, 300, 500 and 1000 simulated agents, including a mid-run server restart.
 
             ### 📦 Docker Images
             - `xhh1128/pulse:${{ steps.version.outputs.version }}`
