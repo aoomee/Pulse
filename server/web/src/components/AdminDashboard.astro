@@ -4184,6 +4184,32 @@ const customCodePlaceholder = [
   //   * 45 s liveness watchdog: server emits either an update event (~3 s) or
   //     a keepalive comment (~15 s), so 45 s of silence means the TCP stream
   //     is half-open and we should reconnect proactively.
+  let paintedAdminFreshness = 0;
+  let paintedAdminIdKey = '';
+  function isStaleAdminSnapshot(list) {
+    let max = 0;
+    for (const s of list) { const t = s && s.updated_at ? Date.parse(s.updated_at) : 0; if (t > max) max = t; }
+    const idKey = list.map((s) => (s && s.id) || '').sort().join('\u0000');
+    if (idKey === paintedAdminIdKey && max && paintedAdminFreshness && max < paintedAdminFreshness) return true;
+    paintedAdminIdKey = idKey;
+    paintedAdminFreshness = max || paintedAdminFreshness;
+    return false;
+  }
+
+  let sessionLostHandled = false;
+  async function handleSessionLost() {
+    if (sessionLostHandled) return;
+    sessionLostHandled = true;
+    try {
+      const token = localStorage.getItem('admin_auth_token') || '';
+      const res = await fetch(`${apiBase}/api/auth/verify`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+      const data = res.ok ? await res.json() : { valid: false };
+      if (data && data.valid) { sessionLostHandled = false; connectSSE(); return; }
+    } catch (_) {}
+    localStorage.removeItem('admin_auth_token');
+    window.location.href = '/login?redirect=/admin';
+  }
+
   let sseReconnectAttempt = 0;
   let sseWatchdogTimer = null;
   const SSE_WATCHDOG_MS = 45_000;
@@ -4269,8 +4295,17 @@ const customCodePlaceholder = [
       }
 
       if (update.type === 'metric_updated') {
+        /* The server downgrades a stream whose admin_token is no longer
+           valid (restart, 24 h expiry) to the public view instead of
+           failing it. Rendering that would blank every IP and strip the
+           secret from install commands, so verify the session and go
+           back through /login. */
+        if (update.view === 'public') { handleSessionLost(); return; }
         if (Array.isArray(update.systems)) {
-          debouncedRenderSystems(update.systems);
+          // Skip a (re)connection's first payload when it is older than the
+          // list already on screen for the same systems; painting it would
+          // step every value backwards for one tick.
+          if (!isStaleAdminSnapshot(update.systems)) debouncedRenderSystems(update.systems);
         } else {
           debouncedLoadSystems();
         }
