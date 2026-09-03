@@ -142,8 +142,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
                 document.title = config.text;
               }
               // Update favicon with custom logo
-              if (config.logo) {
-                const favicon = document.querySelector('link[rel="icon"]');
+              if (config.logo && /^(https?:\/\/|\/|data:)/i.test(String(config.logo).trim())) {
+                const favicon = document.querySelector('link[rel=\"icon\"]');
                 if (favicon) {
                   favicon.href = config.logo;
                   // Auto-detect image type based on URL extension
@@ -346,6 +346,10 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
             body: JSON.stringify({ token: shareToken }),
           });
           
+          // 429 (verify rate limit behind a shared proxy address), 5xx or a
+          // dropped request is not a verdict: fail open like the privacy
+          // check itself, only an explicit "invalid" or 401 denies access.
+          if (!verifyRes.ok && verifyRes.status !== 401) { revealAuthContent(); return; }
           if (verifyRes.ok) {
             const verifyData = await verifyRes.json();
             if (verifyData.valid) {
@@ -367,6 +371,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
               body: JSON.stringify({ token: adminToken }),
             });
             
+            if (!verifyRes.ok && verifyRes.status !== 401) { revealAuthContent(); return; }
             if (verifyRes.ok) {
               const verifyData = await verifyRes.json();
               if (verifyData.valid) {

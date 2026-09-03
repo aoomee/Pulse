@@ -132,8 +132,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
                 document.title = `Login - ${config.text}`;
               }
               // Update favicon with custom logo
-              if (config.logo) {
-                const favicon = document.querySelector('link[rel="icon"]');
+              if (config.logo && /^(https?:\/\/|\/|data:)/i.test(String(config.logo).trim())) {
+                const favicon = document.querySelector('link[rel=\"icon\"]');
                 if (favicon) {
                   favicon.href = config.logo;
                   // Auto-detect image type based on URL extension

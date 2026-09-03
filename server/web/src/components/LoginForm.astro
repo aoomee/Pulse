@@ -131,35 +131,19 @@
   // SECURITY: Validate redirect parameter to prevent open redirect attacks
   // Only allow relative paths (starting with /) and prevent protocol-relative or absolute URLs
   function validateRedirect(redirect) {
-    if (!redirect || typeof redirect !== 'string') {
-      return '/admin';
-    }
-
-    // Trim whitespace
+    if (!redirect || typeof redirect !== 'string') return '/admin';
     redirect = redirect.trim();
-
-    // Must start with / (relative path)
-    if (!redirect.startsWith('/')) {
+    if (!redirect.startsWith('/') || redirect.startsWith('//')) return '/admin';
+    /* Resolve with the same parser the browser will use: "/\\evil.com" and
+       "/<tab>/evil.com" pass naive string checks but leave the origin. */
+    try {
+      const u = new URL(redirect, window.location.origin);
+      if (u.origin !== window.location.origin) return '/admin';
+      if (u.pathname.includes('..')) return '/admin';
+      return u.pathname + u.search + u.hash;
+    } catch (_) {
       return '/admin';
     }
-
-    // Prevent protocol-relative URLs (//example.com)
-    if (redirect.startsWith('//')) {
-      return '/admin';
-    }
-
-    // Prevent any protocol (http:, https:, javascript:, etc.)
-    if (redirect.includes(':')) {
-      return '/admin';
-    }
-
-    // Prevent parent directory traversal (../)
-    if (redirect.includes('..')) {
-      return '/admin';
-    }
-
-    // Allow only safe relative paths
-    return redirect;
   }
 
   function updateTranslations() {
@@ -356,11 +340,10 @@
               const redirect = validateRedirect(urlParams.get('redirect') || '/admin');
               window.location.href = redirect;
             } else {
-              // Setup succeeded but login failed, redirect anyway (shouldn't happen)
-              // SECURITY: Validate redirect parameter to prevent open redirect
-              const urlParams = new URLSearchParams(window.location.search);
-              const redirect = validateRedirect(urlParams.get('redirect') || '/admin');
-              window.location.href = redirect;
+              // Password is stored; only the follow-up login failed (rate
+              // limit / network). Say so instead of bouncing off /admin.
+              const lang = getCurrentLanguage();
+              showError(translations[lang].invalidPassword);
             }
           } else {
             const lang = getCurrentLanguage();

@@ -136,8 +136,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
                 document.title = `Admin - ${config.text}`;
               }
               // Update favicon with custom logo
-              if (config.logo) {
-                const favicon = document.querySelector('link[rel="icon"]');
+              if (config.logo && /^(https?:\/\/|\/|data:)/i.test(String(config.logo).trim())) {
+                const favicon = document.querySelector('link[rel=\"icon\"]');
                 if (favicon) {
                   favicon.href = config.logo;
                   // Auto-detect image type based on URL extension
@@ -334,9 +334,14 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
         body: JSON.stringify({ token })
       });
       
-      if (res.ok) {
-        const data = await res.json();
-        if (data.valid) {
+      // Only an explicit verdict ends the session: a 429 (per-IP verify
+      // limit behind a shared proxy address), a 5xx or a dropped request
+      // must not wipe a valid 24 h token; a bad token used by any API call
+      // is caught by the fetch wrapper below.
+      const verifyData = res.ok ? await res.json().catch(() => null) : null;
+      const tokenValid = res.status !== 401 && !(verifyData && verifyData.valid === false);
+      if (true) {
+        if (tokenValid) {
           // Token is valid — cross-fade the overlay out so the admin
           // dashboard appears smoothly beneath. `.animate-content` on
           // <main> has a 100 ms animation-delay, and the overlay's
@@ -362,7 +367,18 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
                 'Authorization': `Bearer ${token}`
               };
             }
-            return originalFetch.apply(this, [url, options]);
+            const p = originalFetch.apply(this, [url, options]);
+            if (!(typeof url === 'string' && (url.startsWith(apiBase) || url.startsWith('/api/')))) return p;
+            // Session tokens live only in server memory: a restart or the
+            // 24 h expiry turns every later call into a 401. Send the admin
+            // back to the login page instead of surfacing alerts.
+            return p.then((res) => {
+              if (res && res.status === 401 && !/\/api\/auth\//.test(url)) {
+                localStorage.removeItem('admin_auth_token');
+                window.location.href = '/login?redirect=/admin';
+              }
+              return res;
+            });
           };
         } else {
           // Token is invalid, redirect to login
