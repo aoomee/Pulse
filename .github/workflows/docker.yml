@@ -147,6 +147,7 @@ jobs:
             - Static path hardening: traversal probes such as `/../admin` no longer resolve to a page.
             - Admin actions stay fast on large databases: reordering is one transaction, deleting a system or a TCPing target removes its history in the background in bounded chunks (no more multi-second stalls of the admin page or of agent pushes).
             - Proxy handling: `X-Forwarded-For` is now read from the trusted side of the chain, so a client behind a CDN listed in `TRUSTED_PROXIES` can no longer spoof its address to bypass the login rate limit or the per-IP SSE cap. The client lets the HTTP transport negotiate compression, so registration responses gzipped by a CDN are decoded correctly.
+            - Admin page: an expired session (server restart or 24 h token expiry) returns the admin to the login page instead of surfacing "unauthorized" alerts; the share-link token comes from the CSPRNG, saving the privacy dialog no longer revokes or restarts the existing link, long-lived links are no longer mislabelled as expired, Escape fully resets every modal, drag-and-drop moves rows instantly, and the login redirect check can no longer be bypassed with a backslash or whitespace.
             - `docker-compose.yaml` sets a 45 s stop grace period so the database always closes cleanly.
             - Client: constant-time secret comparison.
 
