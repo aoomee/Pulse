@@ -151,6 +151,7 @@ jobs:
             - Privacy dialog: a plain save also keeps the previously chosen link duration.
             - Server-driven TCPing reaches pull-mode (non-pushing, legacy) agents again; the re-registration guard no longer mistakes the server's own poll for a push.
             - Page open/refresh no longer flickers: a new event stream is primed only with a snapshot younger than one second, and both pages ignore a stream payload older than the data already on screen. The admin page also detects a stream downgraded to the public view after a session loss and returns to the login page.
+            - Snapshots carry a `view` field so the admin page can detect a stream downgraded to the public view; change-password trims the confirmation field consistently; a drag-and-drop order save can no longer be interrupted by a snapshot already queued for rendering.
             - `docker-compose.yaml` sets a 45 s stop grace period so the database always closes cleanly.
             - Client: constant-time secret comparison.
 
