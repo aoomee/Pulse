@@ -26,7 +26,7 @@
 
 .EXAMPLE
     # One-liner installation (run in PowerShell as Administrator):
-    irm https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.ps1 | iex
+    irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.ps1 | iex
 #>
 
 # Read from environment variables (for piped execution via irm | iex)
@@ -42,7 +42,7 @@ $script:Secret = $env:Secret
 # Configuration
 $InstallDir = "$env:ProgramFiles\Pulse"
 $ServiceName = "PulseClient"
-$GitHubRepo = "https://raw.githubusercontent.com/xhhcn/Pulse/main/client"
+$GitHubRepo = "https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1"
 $BinaryName = "probe-client.exe"
 
 # Colors

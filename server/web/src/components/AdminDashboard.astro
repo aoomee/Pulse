@@ -1086,7 +1086,7 @@ const customCodePlaceholder = [
     const system = pendingLinuxInstallSystem;
     if (!system) return;
     const serverUrl = window.location.origin;
-    let command = `curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(serverUrl)}`;
+    let command = `curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(serverUrl)}`;
     if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
 
     if (linuxVnstatToggle?.checked) {
@@ -2501,7 +2501,7 @@ const customCodePlaceholder = [
         if (secret) {
           command += `; \`$env:Secret=${powershellQuote(secret)}`;
         }
-        command += `; irm https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.ps1 | iex }"`;
+        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.ps1 | iex }"`;
         
         const windowsIcon = newBtn.querySelector('.windows-icon');
         const checkIcon = newBtn.querySelector('.check-icon');

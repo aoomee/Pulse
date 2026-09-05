@@ -41,7 +41,9 @@
 
 本分支包含可选 vnStat 月流量、每台机器的月额度、紧凑对齐的进度条及一次性柔和入场动效。
 
-**部署注意：这是源码改造，不是已发布安装包。** 原作者的镜像、Release 和本仓库继承的客户端二进制均不包含这些新功能。部署前需从本分支重新构建服务端和客户端；若使用后台生成的一键安装命令，应先将改动合并到 `aoomee/Pulse` 的 `main`，启用并等待 `Build Client Binaries` 工作流成功更新客户端文件。Linux 安装及自动更新地址已指向本 fork，避免重新安装上游旧版本。
+**部署本 fork：** 使用 `ghcr.io/aoomee/pulse:1.4.0-vnstat.1`（amd64/arm64）。等待 `Publish Pulse Fork` 工作流成功后，从 [本版 Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1) 下载 `docker-compose.yaml`，执行 `docker compose up -d`，访问 `http://服务器IP:8008`。升级已有部署请先备份数据，保留原来的数据卷或目录映射到 `/app/data`，不要执行 `docker compose down -v`。下文保留的上游镜像和 Release 安装说明不包含本分支改造。
+
+后台安装命令、Linux/macOS 自动更新均固定到本版 Release 的客户端，不会退回上游或未构建的 `main` 二进制。后续升级客户端需使用新版安装脚本。Windows 保留原统计方式，使用同版本客户端。
 
 vnStat 只能统计其开始采集后的流量，不能补回安装前的用量；修改重置日也不会重新计算已有历史数据。安装脚本会修改机器的 `/etc/vnstat.conf` 中 `MonthRotate`，该设置也影响同机其他 vnStat 使用者。Windows/macOS 仍使用原统计方式。
 
@@ -251,14 +253,14 @@ Pulse 支持 IPv4/IPv6 双栈，如果您的服务器需要 IPv6 支持，请按
 ### Linux
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
 
 Linux 客户端可选用 vnStat 统计当前月或当前账期流量。管理后台点击机器右侧的 Linux 图标，开启“使用 vnStat 统计月流量”后即可生成对应命令；也可以手动安装：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET> \
   --vnstat --traffic-reset-day 8 --vnstat-interface eth0
 ```
@@ -273,7 +275,7 @@ curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh 
 安装脚本会自动检测 CPU 架构，并将服务注册为 `launchd` 守护进程（开机自动启动）：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
 

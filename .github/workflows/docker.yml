@@ -17,6 +17,7 @@ env:
 
 jobs:
   build:
+    if: github.repository == 'xhhcn/Pulse'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -118,7 +119,7 @@ jobs:
           echo "Client binaries built successfully"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

@@ -41,7 +41,9 @@
 
 This branch adds optional vnStat billing-cycle traffic, per-server allowances, aligned compact meters, and a gentle one-time entrance animation.
 
-**Deployment: these are source changes, not a published release.** Upstream images/releases and inherited client binaries do not include them. Rebuild both server and clients from this branch. Before using the generated Linux installer command, merge into `aoomee/Pulse`'s `main`, enable and wait for the `Build Client Binaries` workflow to update the client files. Linux installation and automatic updates now use this fork rather than upstream.
+**Deploy this fork:** use `ghcr.io/aoomee/pulse:1.4.0-vnstat.1` (amd64/arm64). After `Publish Pulse Fork` succeeds, download `docker-compose.yaml` from [this release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1), run `docker compose up -d`, and visit port 8008. Back up existing data before upgrading and preserve the original volume/bind mount at `/app/data`; do not run `docker compose down -v`. The upstream image/release instructions retained below do not include this fork's changes.
+
+Generated installation commands and Linux/macOS automatic updates are pinned to this release's clients, never upstream or inherited main-branch binaries. Use a newer installer for future client upgrades. Windows retains its original accounting with the matching client build.
 
 vnStat only records traffic after collection starts; it cannot recover earlier usage. Changing the reset day does not recalculate existing history. The installer modifies `MonthRotate` in `/etc/vnstat.conf`, affecting other vnStat users on that machine. Windows/macOS retain the original accounting method.
 
@@ -251,14 +253,14 @@ Pulse supports IPv4/IPv6 dual-stack. If your server requires IPv6 support, pleas
 ### Linux
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
 
 Linux clients can optionally use vnStat for current-month or billing-cycle traffic. Click the Linux icon beside a machine in the admin panel and enable “Monthly traffic with vnStat” to generate the command, or install it manually:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET> \
   --vnstat --traffic-reset-day 8 --vnstat-interface eth0
 ```
@@ -273,7 +275,7 @@ curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh 
 The install script auto-detects CPU architecture and registers the service as a `launchd` daemon (auto-starts on boot):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
 
