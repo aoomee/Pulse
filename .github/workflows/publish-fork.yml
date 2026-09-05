@@ -108,7 +108,7 @@ jobs:
           done
           curl -fsS http://127.0.0.1:18080/healthz
           curl -fsS http://127.0.0.1:18080/ -o /tmp/pulse-home.html
-          grep -q 'data-main-traffic' /tmp/pulse-home.html
+          grep -q 'id="monitor-root"' /tmp/pulse-home.html
           curl -fsS http://127.0.0.1:18080/admin/ -o /tmp/pulse-admin.html
           grep -q "$RELEASE_TAG/install.sh" /tmp/pulse-admin.html
 
