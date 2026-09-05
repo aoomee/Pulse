@@ -68,16 +68,25 @@ type metricPayload struct {
 	NetOutMBps         float64 `json:"net_out_mb_s"`
 	TotalNetInBytes    uint64  `json:"total_net_in_bytes,omitempty"`  // Total received bytes
 	TotalNetOutBytes   uint64  `json:"total_net_out_bytes,omitempty"` // Total transmitted bytes
+	MonthlyNetInBytes  uint64  `json:"monthly_net_in_bytes,omitempty"`
+	MonthlyNetOutBytes uint64  `json:"monthly_net_out_bytes,omitempty"`
+	TrafficSource      string  `json:"traffic_source,omitempty"`      // "vnstat" when monthly counters are available
+	TrafficResetDay    int     `json:"traffic_reset_day,omitempty"`   // Billing-cycle rotation day (1-28)
+	TrafficCycleStart  string  `json:"traffic_cycle_start,omitempty"` // YYYY-MM-DD in the agent's local timezone
+	TrafficCycleEnd    string  `json:"traffic_cycle_end,omitempty"`   // YYYY-MM-DD in the agent's local timezone
 	AgentVersion       string  `json:"agent_version"`
 	Alert              bool    `json:"alert"`
 }
 
 var (
-	agentID    string
-	agentName  string
-	startTime  time.Time
-	serverBase string
-	secret     string // Secret for authenticating metrics endpoint
+	agentID         string
+	agentName       string
+	startTime       time.Time
+	serverBase      string
+	secret          string // Secret for authenticating metrics endpoint
+	vnStatEnabled   bool
+	vnStatInterface string
+	trafficResetDay int
 
 	// Cache for data that doesn't change frequently
 	cpuModelCache               string
@@ -394,11 +403,21 @@ func main() {
 	serverBase = strings.TrimSuffix(envOr("SERVER_BASE", "http://localhost:8080"), "/")
 	clientPort := envOr("CLIENT_PORT", "9090")
 	secret = envOr("SECRET", "")
+	vnStatEnabled = parseBoolEnv("VNSTAT_ENABLED")
+	vnStatInterface = strings.TrimSpace(envOr("VNSTAT_INTERFACE", ""))
+	trafficResetDay = parseTrafficResetDay(envOr("TRAFFIC_RESET_DAY", "1"))
 
 	// Record start time for uptime calculation
 	startTime = time.Now()
 
 	log.Printf("🚀 Starting Probe Client (ID: %s, Name: %s)", agentID, agentName)
+	if vnStatEnabled {
+		iface := vnStatInterface
+		if iface == "" {
+			iface = "vnStat default interface"
+		}
+		log.Printf("📊 Monthly traffic enabled (source: vnStat, interface: %s, reset day: %d)", iface, trafficResetDay)
+	}
 
 	// macOS: start background CPU sampler early so the first push has a real value
 	if runtime.GOOS == "darwin" {
@@ -1187,7 +1206,14 @@ func collectSystemMetrics() metricPayload {
 	disk := getDiskUsage()
 	diskInfo := getDiskInfo()
 	netIn, netOut, totalNetInBytes, totalNetOutBytes := getNetworkStats()
+	monthlyNetInBytes, monthlyNetOutBytes, trafficCycleStart, trafficCycleEnd, hasMonthlyTraffic := getMonthlyNetworkStats()
 	virtualizationType := getVirtualizationType()
+	trafficSource := "interface"
+	reportedResetDay := 0
+	if hasMonthlyTraffic {
+		trafficSource = "vnstat"
+		reportedResetDay = trafficResetDay
+	}
 
 	return metricPayload{
 		ID:                 agentID,
@@ -1210,7 +1236,13 @@ func collectSystemMetrics() metricPayload {
 		NetOutMBps:         netOut,
 		TotalNetInBytes:    totalNetInBytes,
 		TotalNetOutBytes:   totalNetOutBytes,
-		AgentVersion:       "1.3.5",
+		MonthlyNetInBytes:  monthlyNetInBytes,
+		MonthlyNetOutBytes: monthlyNetOutBytes,
+		TrafficSource:      trafficSource,
+		TrafficResetDay:    reportedResetDay,
+		TrafficCycleStart:  trafficCycleStart,
+		TrafficCycleEnd:    trafficCycleEnd,
+		AgentVersion:       "1.4.0",
 		Alert:              false, // Can be enhanced with actual alert logic
 	}
 }
@@ -2251,6 +2283,148 @@ var (
 type netInterfaceStats struct {
 	RxBytes uint64
 	TxBytes uint64
+}
+
+// vnStat is optional. When enabled, its persisted database gives Pulse a
+// reboot-safe current billing-cycle total while the existing kernel counters
+// remain the source for real-time speed and the legacy Total display.
+type vnStatMonth struct {
+	Date struct {
+		Year  int `json:"year"`
+		Month int `json:"month"`
+	} `json:"date"`
+	RX uint64 `json:"rx"`
+	TX uint64 `json:"tx"`
+}
+
+type vnStatJSON struct {
+	Interfaces []struct {
+		Name    string `json:"name"` // vnStat 2.x
+		ID      string `json:"id"`   // vnStat 1.x
+		Traffic struct {
+			Month  []vnStatMonth `json:"month"`  // vnStat 2.x
+			Months []vnStatMonth `json:"months"` // vnStat 1.x
+		} `json:"traffic"`
+	} `json:"interfaces"`
+}
+
+type monthlyTrafficSnapshot struct {
+	rx, tx     uint64
+	cycleStart string
+	cycleEnd   string
+	ok         bool
+	loadedAt   time.Time
+}
+
+var (
+	monthlyTrafficCache monthlyTrafficSnapshot
+	monthlyTrafficMu    sync.Mutex
+	monthlyTrafficWarn  sync.Once
+)
+
+func trafficCycleBounds(now time.Time, resetDay int) (time.Time, time.Time) {
+	if resetDay < 1 || resetDay > 28 {
+		resetDay = 1
+	}
+	location := now.Location()
+	start := time.Date(now.Year(), now.Month(), resetDay, 0, 0, 0, 0, location)
+	if now.Before(start) {
+		start = start.AddDate(0, -1, 0)
+	}
+	return start, start.AddDate(0, 1, 0)
+}
+
+func parseVnStatMonthlyJSON(data []byte, preferredInterface string, cycleStart time.Time) (uint64, uint64, bool) {
+	var report vnStatJSON
+	if err := json.Unmarshal(data, &report); err != nil || len(report.Interfaces) == 0 {
+		return 0, 0, false
+	}
+	selected := &report.Interfaces[0]
+	if preferredInterface != "" {
+		selected = nil
+		for i := range report.Interfaces {
+			if report.Interfaces[i].Name == preferredInterface || report.Interfaces[i].ID == preferredInterface {
+				selected = &report.Interfaces[i]
+				break
+			}
+		}
+		if selected == nil {
+			return 0, 0, false
+		}
+	}
+	months := selected.Traffic.Month
+	legacyKiB := false
+	if len(months) == 0 {
+		months = selected.Traffic.Months
+		legacyKiB = true
+	}
+	if len(months) == 0 {
+		return 0, 0, false
+	}
+	for _, entry := range months {
+		if entry.Date.Year == cycleStart.Year() && entry.Date.Month == int(cycleStart.Month()) {
+			if legacyKiB {
+				// vnStat 1.x JSON uses KiB; 2.x uses bytes.
+				if entry.RX > ^uint64(0)/1024 || entry.TX > ^uint64(0)/1024 {
+					return 0, 0, false
+				}
+				return entry.RX * 1024, entry.TX * 1024, true
+			}
+			return entry.RX, entry.TX, true
+		}
+	}
+	// A stopped daemon or delayed rotation must not relabel last month's
+	// counters as this month's usage. Fall back until current data exists.
+	return 0, 0, false
+}
+
+func getMonthlyNetworkStats() (rx, tx uint64, cycleStart, cycleEnd string, ok bool) {
+	if !vnStatEnabled {
+		return 0, 0, "", "", false
+	}
+
+	monthlyTrafficMu.Lock()
+	defer monthlyTrafficMu.Unlock()
+	start, end := trafficCycleBounds(time.Now(), trafficResetDay)
+	if time.Since(monthlyTrafficCache.loadedAt) < 30*time.Second &&
+		monthlyTrafficCache.cycleStart == start.Format("2006-01-02") {
+		cached := monthlyTrafficCache
+		if !cached.ok {
+			return 0, 0, "", "", false
+		}
+		return cached.rx, cached.tx, cached.cycleStart, cached.cycleEnd, cached.ok
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	args := []string{"--json", "m"}
+	if vnStatInterface != "" {
+		args = append(args, "--iface", vnStatInterface)
+	}
+	output, err := exec.CommandContext(ctx, "vnstat", args...).Output()
+	if err != nil {
+		monthlyTrafficWarn.Do(func() {
+			log.Printf("⚠️  vnStat monthly traffic unavailable; using interface totals: %v", err)
+		})
+		monthlyTrafficCache = monthlyTrafficSnapshot{loadedAt: time.Now(), cycleStart: start.Format("2006-01-02")}
+		return 0, 0, "", "", false
+	}
+
+	rx, tx, ok = parseVnStatMonthlyJSON(output, vnStatInterface, start)
+	if !ok {
+		monthlyTrafficWarn.Do(func() {
+			log.Printf("⚠️  vnStat returned no monthly data; using interface totals")
+		})
+		monthlyTrafficCache = monthlyTrafficSnapshot{loadedAt: time.Now(), cycleStart: start.Format("2006-01-02")}
+		return 0, 0, "", "", false
+	}
+	cycleStart = start.Format("2006-01-02")
+	cycleEnd = end.Format("2006-01-02")
+	monthlyTrafficCache = monthlyTrafficSnapshot{
+		rx: rx, tx: tx, cycleStart: cycleStart, cycleEnd: cycleEnd,
+		ok: true, loadedAt: time.Now(),
+	}
+	return rx, tx, cycleStart, cycleEnd, true
 }
 
 func getNetworkStats() (inMBps, outMBps float64, totalRxBytes, totalTxBytes uint64) {
@@ -4473,6 +4647,23 @@ func envOr(k, def string) string {
 		return v
 	}
 	return def
+}
+
+func parseBoolEnv(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on", "enabled":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseTrafficResetDay(value string) int {
+	day, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || day < 1 || day > 28 {
+		return 1
+	}
+	return day
 }
 
 // Auto-generated comment to trigger workflow

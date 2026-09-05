@@ -127,6 +127,60 @@ const customCodePlaceholder = [
     </div>
   </div>
 
+  <!-- Linux Install Options Modal -->
+  <div id="linux-install-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 dark:bg-black/50 bg-black/30 backdrop-blur-sm" data-modal>
+    <div class="mx-4 w-full max-w-md rounded-xl border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#1c1c1c] dark:bg-[#1c1c1c] bg-white p-6 shadow-2xl" data-modal-content>
+      <div class="mb-5 flex items-center justify-between">
+        <div>
+          <h2 class="text-xl font-semibold text-[#262626] dark:text-[#f5f5f5]" data-translate="linuxInstallTitle">Linux installation</h2>
+          <p id="linux-install-system-name" class="mt-1 text-xs text-[#525252] dark:text-[#737373]"></p>
+        </div>
+        <button id="close-linux-install-modal-btn" class="rounded-lg p-1 text-[#525252] dark:text-[#a3a3a3] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0]" title="Close" aria-label="Close" data-title-en="Close" data-title-zh="关闭">
+          <Icon name="x" size={20} />
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="flex items-center justify-between rounded-lg border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#222] dark:bg-[#222] bg-white p-4">
+          <div class="flex-1 pr-4">
+            <label for="linux-vnstat-toggle" class="block text-sm font-medium text-[#262626] dark:text-[#d4d4d4]" data-translate="vnstatMonthlyLabel">Monthly traffic with vnStat</label>
+            <p class="mt-1 text-xs text-[#525252] dark:text-[#737373]" data-translate="vnstatMonthlyDesc">Install vnStat and keep the current billing-cycle total across reboots.</p>
+          </div>
+          <label class="relative inline-flex cursor-pointer items-center">
+            <input type="checkbox" id="linux-vnstat-toggle" class="peer sr-only" />
+            <div class="h-6 w-11 rounded-full bg-[#d4d4d4] after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-emerald-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus-visible:ring-2 peer-focus-visible:ring-emerald-500/60 dark:bg-[#404040]"></div>
+          </label>
+        </div>
+
+        <div id="linux-vnstat-options" class="hidden space-y-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+          <div>
+            <label for="linux-vnstat-interface" class="mb-1 block text-sm font-medium text-[#525252] dark:text-[#a3a3a3]" data-translate="networkInterfaceLabel">Network interface</label>
+            <input id="linux-vnstat-interface" type="text" placeholder="Auto-detect (for example: eth0)" data-placeholder-en="Auto-detect (for example: eth0)" data-placeholder-zh="自动检测（例如 eth0）" class="w-full rounded-lg border border-[#d4d4d4]/50 bg-white px-3 py-2 text-sm text-[#262626] outline-none transition-colors focus:border-[#737373] focus:bg-[#fafafa] dark:border-[#404040]/50 dark:bg-[#222] dark:text-[#d4d4d4] dark:focus:border-[#525252] dark:focus:bg-[#282828]" />
+            <p class="mt-1 text-xs text-[#525252] dark:text-[#737373]" data-translate="networkInterfaceHint">Leave empty to use the default-route interface.</p>
+          </div>
+          <div>
+            <label for="linux-traffic-reset-day" class="mb-1 block text-sm font-medium text-[#525252] dark:text-[#a3a3a3]" data-translate="trafficResetDayLabel">Monthly reset day</label>
+            <div class="flex items-center gap-2">
+              <input id="linux-traffic-reset-day" type="number" min="1" max="28" value="1" class="w-24 rounded-lg border border-[#d4d4d4]/50 bg-white px-3 py-2 text-sm text-[#262626] outline-none transition-colors focus:border-[#737373] focus:bg-[#fafafa] dark:border-[#404040]/50 dark:bg-[#222] dark:text-[#d4d4d4] dark:focus:border-[#525252] dark:focus:bg-[#282828]" />
+              <span class="text-xs text-[#525252] dark:text-[#737373]" data-translate="trafficResetDayHint">1–28, using the monitored machine's timezone</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-xs text-[#525252] dark:text-[#737373]" data-translate="vnstatFallbackHint">If vnStat cannot be installed, Pulse automatically falls back to interface totals.</p>
+
+        <div class="flex gap-3 pt-1">
+          <button type="button" id="cancel-linux-install-btn" class="flex-1 rounded-lg border border-[#d4d4d4]/50 bg-white px-4 py-2 text-sm font-semibold text-[#262626] transition-colors hover:bg-[#f0f0f0] dark:border-[#404040]/50 dark:bg-[#222] dark:text-[#d4d4d4] dark:hover:bg-[#282828]">
+            <span data-translate="cancel">Cancel</span>
+          </button>
+          <button type="button" id="copy-linux-install-btn" class="flex-1 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-600">
+            <span data-translate="copyInstallCommand">Copy command</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Edit System Modal -->
   <div id="edit-system-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 dark:bg-black/50 bg-black/30 backdrop-blur-sm" data-modal>
     <div class="mx-4 w-full max-w-md rounded-xl border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#1c1c1c] dark:bg-[#1c1c1c] bg-white p-6 shadow-2xl" data-modal-content>
@@ -163,6 +217,27 @@ const customCodePlaceholder = [
             class="w-full rounded-lg border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#222] dark:bg-[#222] bg-white px-3 py-2 text-sm text-[#262626] dark:text-[#d4d4d4] placeholder-[#737373] dark:placeholder-[#737373] placeholder-[#a3a3a3] outline-none transition-colors focus:border-[#525252] dark:focus:border-[#525252] focus:border-[#737373] focus:bg-[#282828] dark:focus:bg-[#282828] focus:bg-[#fafafa]"
           />
           <p class="mt-1 text-xs text-[#737373] dark:text-[#a3a3a3]" data-translate="tagsHint">Enter tags separated by commas (e.g., Python, traffic:in, speed:in, spr:VIP, spy:staff, spb:pro)</p>
+        </div>
+
+        <div>
+          <label for="edit-traffic-limit" class="mb-1 block text-sm font-medium text-[#525252] dark:text-[#a3a3a3]" data-translate="monthlyTrafficLimit">Monthly traffic allowance</label>
+          <div class="flex gap-2">
+            <input
+              id="edit-traffic-limit"
+              type="number"
+              name="traffic_limit"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="0"
+              class="min-w-0 flex-1 rounded-lg border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#222] dark:bg-[#222] bg-white px-3 py-2 text-sm tabular-nums text-[#262626] dark:text-[#d4d4d4] placeholder-[#a3a3a3] outline-none transition-colors focus:border-[#737373] focus:bg-[#fafafa] dark:focus:border-[#525252] dark:focus:bg-[#282828]"
+            />
+            <select name="traffic_limit_unit" aria-label="Traffic allowance unit" class="w-24 rounded-lg border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#222] dark:bg-[#222] bg-white px-3 py-2 text-sm text-[#262626] dark:text-[#d4d4d4] outline-none transition-colors focus:border-[#737373] dark:focus:border-[#525252]">
+              <option value="GB">GB</option>
+              <option value="TB">TB</option>
+            </select>
+          </div>
+          <p class="mt-1 text-xs text-[#737373] dark:text-[#a3a3a3]" data-translate="monthlyTrafficLimitHint">Used for vnStat monthly percentage; leave empty or 0 to show usage only.</p>
         </div>
 
         <!-- Per-system visibility toggles (admin-only; agents never touch them) -->
@@ -969,6 +1044,70 @@ const customCodePlaceholder = [
     if (e.target === addModal) closeAddModal();
   });
 
+  // Linux install options. The per-system Linux icon opens this small
+  // chooser so monthly accounting is explicit instead of silently changing
+  // the command copied by an existing workflow.
+  const linuxInstallModal = document.getElementById('linux-install-modal');
+  const closeLinuxInstallBtn = document.getElementById('close-linux-install-modal-btn');
+  const cancelLinuxInstallBtn = document.getElementById('cancel-linux-install-btn');
+  const copyLinuxInstallBtn = document.getElementById('copy-linux-install-btn');
+  const linuxVnstatToggle = document.getElementById('linux-vnstat-toggle');
+  const linuxVnstatOptions = document.getElementById('linux-vnstat-options');
+  let pendingLinuxInstallSystem = null;
+
+  function closeLinuxInstallModal() {
+    closeModalWithAnimation(linuxInstallModal, () => {
+      pendingLinuxInstallSystem = null;
+      if (linuxVnstatToggle) linuxVnstatToggle.checked = false;
+      linuxVnstatOptions?.classList.add('hidden');
+      const iface = document.getElementById('linux-vnstat-interface');
+      const resetDay = document.getElementById('linux-traffic-reset-day');
+      if (iface) iface.value = '';
+      if (resetDay) resetDay.value = '1';
+    });
+  }
+
+  function openLinuxInstallModal(system) {
+    pendingLinuxInstallSystem = system;
+    const name = document.getElementById('linux-install-system-name');
+    if (name) name.textContent = system?.name || system?.id || '';
+    openModalWithAnimation(linuxInstallModal);
+  }
+
+  linuxVnstatToggle?.addEventListener('change', () => {
+    linuxVnstatOptions?.classList.toggle('hidden', !linuxVnstatToggle.checked);
+  });
+  closeLinuxInstallBtn?.addEventListener('click', closeLinuxInstallModal);
+  cancelLinuxInstallBtn?.addEventListener('click', closeLinuxInstallModal);
+  linuxInstallModal?.addEventListener('click', (e) => {
+    if (e.target === linuxInstallModal) closeLinuxInstallModal();
+  });
+  copyLinuxInstallBtn?.addEventListener('click', async () => {
+    const system = pendingLinuxInstallSystem;
+    if (!system) return;
+    const serverUrl = window.location.origin;
+    let command = `curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(serverUrl)}`;
+    if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
+
+    if (linuxVnstatToggle?.checked) {
+      const iface = String(document.getElementById('linux-vnstat-interface')?.value || '').trim();
+      const resetInput = Number(document.getElementById('linux-traffic-reset-day')?.value || 1);
+      const resetDay = Math.min(28, Math.max(1, Number.isFinite(resetInput) ? Math.trunc(resetInput) : 1));
+      command += ` --vnstat --traffic-reset-day ${resetDay}`;
+      if (iface) command += ` --vnstat-interface ${shellQuote(iface)}`;
+    }
+
+    if (await copyToClipboard(command)) {
+      const label = copyLinuxInstallBtn.querySelector('span');
+      const original = label?.textContent || 'Copy command';
+      if (label) label.textContent = localStorage.getItem('preferred-language') === 'zh' ? '已复制' : 'Copied';
+      setTimeout(() => {
+        if (label) label.textContent = original;
+        closeLinuxInstallModal();
+      }, 650);
+    }
+  });
+
   // Edit Modal controls
   const editModal = document.getElementById('edit-system-modal');
   const closeEditBtn = document.getElementById('close-edit-modal-btn');
@@ -998,6 +1137,26 @@ const customCodePlaceholder = [
       // positively phrased ("show ..."), default = shown.
       form.elements['show_on_home'].checked = system.hide_on_home !== true;
       form.elements['show_tcping'].checked = system.hide_tcping !== true;
+
+      // Monthly allowance is an admin-owned value. Prefer TB for whole or
+      // larger-terabyte quotas; otherwise keep the input comfortably in GB.
+      const limitBytes = Number(system.traffic_limit_bytes || 0);
+      const gb = 1000 ** 3;
+      const tb = 1000 ** 4;
+      const limitInput = form.elements['traffic_limit'];
+      const limitUnit = form.elements['traffic_limit_unit'];
+      if (limitInput && limitUnit) {
+        if (limitBytes >= tb) {
+          limitUnit.value = 'TB';
+          limitInput.value = String(Number((limitBytes / tb).toFixed(2)));
+        } else if (limitBytes > 0) {
+          limitUnit.value = 'GB';
+          limitInput.value = String(Number((limitBytes / gb).toFixed(2)));
+        } else {
+          limitUnit.value = 'TB';
+          limitInput.value = '';
+        }
+      }
 
       // Open modal with animation
       openModalWithAnimation(editModal);
@@ -1109,6 +1268,11 @@ const customCodePlaceholder = [
       ipv6: String(item.ipv6 || ''),
       total_net_in_bytes: Number(item.total_net_in_bytes || 0),
       total_net_out_bytes: Number(item.total_net_out_bytes || 0),
+      monthly_net_in_bytes: Number(item.monthly_net_in_bytes || 0),
+      monthly_net_out_bytes: Number(item.monthly_net_out_bytes || 0),
+      traffic_source: String(item.traffic_source || 'interface'),
+      traffic_reset_day: Number(item.traffic_reset_day || 0),
+      traffic_limit_bytes: Number(item.traffic_limit_bytes || 0),
       cpu_model: String(item.cpu_model || ''),
       order: Number(item.order || 0),
       tags: Array.isArray(item.tags) ? item.tags : [],
@@ -1146,6 +1310,11 @@ const customCodePlaceholder = [
       old.ipv6 !== new_.ipv6 ||
       old.total_net_in_bytes !== new_.total_net_in_bytes ||
       old.total_net_out_bytes !== new_.total_net_out_bytes ||
+      old.monthly_net_in_bytes !== new_.monthly_net_in_bytes ||
+      old.monthly_net_out_bytes !== new_.monthly_net_out_bytes ||
+      old.traffic_source !== new_.traffic_source ||
+      old.traffic_reset_day !== new_.traffic_reset_day ||
+      old.traffic_limit_bytes !== new_.traffic_limit_bytes ||
       old.cpu_model !== new_.cpu_model ||
       old.order !== new_.order ||
       old.hide_on_home !== new_.hide_on_home ||
@@ -1190,7 +1359,18 @@ const customCodePlaceholder = [
     return `'${String(value ?? '').replace(/'/g, `''`)}'`;
   }
 
+  function getDisplayedTraffic(item) {
+    const monthly = item?.traffic_source === 'vnstat';
+    return {
+      monthly,
+      inBytes: Number(monthly ? item?.monthly_net_in_bytes : item?.total_net_in_bytes) || 0,
+      outBytes: Number(monthly ? item?.monthly_net_out_bytes : item?.total_net_out_bytes) || 0,
+      prefix: monthly ? 'Month ' : ''
+    };
+  }
+
   function renderSystemItem(system, index) {
+    const displayedTraffic = getDisplayedTraffic(system);
     return `
         <div class="draggable-item rounded-lg border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#222] dark:bg-[#222] bg-white p-4 cursor-move transition-colors duration-150 hover:border-[#525252] dark:hover:border-[#525252] hover:border-[#737373] hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0] min-h-[60px] relative" draggable="true" data-system-id="${escapeHtmlAttr(system.id || '')}" data-index="${index}">
             <!-- CPU Brand Icon - Background, centered horizontally -->
@@ -1290,22 +1470,22 @@ const customCodePlaceholder = [
               </div>
               ` : ''}
               
-              ${(system.total_net_in_bytes || system.total_net_out_bytes) ? `
+              ${(displayedTraffic.inBytes || displayedTraffic.outBytes) ? `
               <!-- Network Traffic Stats - Hidden on mobile.
                    tabular-nums + a fixed min-w on the traffic-info-container
                    keeps the column at a constant width across pushes so the
                    surrounding row never jitters as the byte count grows. -->
               <div class="traffic-info-container hidden sm:flex flex-col gap-1 text-xs min-h-[48px] flex-shrink-0 justify-center" style="font-variant-numeric: tabular-nums; min-width: 110px;">
-                ${system.total_net_in_bytes ? `
-                <div class="flex items-center min-h-[22px]">
-                  <span class="system-total-net-in text-[#525252] dark:text-[#737373]">In: ${formatBytes(system.total_net_in_bytes)}</span>
+                ${displayedTraffic.inBytes ? `
+                <div class="flex items-center min-h-[22px]" data-traffic-direction="in">
+                  <span class="system-total-net-in text-[#525252] dark:text-[#737373]">${displayedTraffic.prefix}In: ${formatBytes(displayedTraffic.inBytes)}</span>
                 </div>
-                ` : '<div class="min-h-[22px]"></div>'}
-                ${system.total_net_out_bytes ? `
-                <div class="flex items-center min-h-[22px]">
-                  <span class="system-total-net-out text-[#525252] dark:text-[#737373]">Out: ${formatBytes(system.total_net_out_bytes)}</span>
+                ` : '<div class="min-h-[22px]" data-traffic-direction="in"></div>'}
+                ${displayedTraffic.outBytes ? `
+                <div class="flex items-center min-h-[22px]" data-traffic-direction="out">
+                  <span class="system-total-net-out text-[#525252] dark:text-[#737373]">${displayedTraffic.prefix}Out: ${formatBytes(displayedTraffic.outBytes)}</span>
                 </div>
-                ` : '<div class="min-h-[22px]"></div>'}
+                ` : '<div class="min-h-[22px]" data-traffic-direction="out"></div>'}
               </div>
               ` : ''}
             </div>
@@ -1314,8 +1494,10 @@ const customCodePlaceholder = [
             <button 
               class="copy-linux-cmd-btn shrink-0 rounded-lg p-2 text-[#525252] dark:text-[#737373] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0] hover:text-orange-400 dark:hover:text-orange-400 hover:text-orange-600 self-center"
               data-system-id="${escapeHtmlAttr(system.id || '')}"
-              title="Copy Linux install command"
-              aria-label="Copy Linux install command"
+              title="Linux install options"
+              aria-label="Linux install options"
+              data-title-en="Linux install options"
+              data-title-zh="Linux 安装选项"
             >
               <svg class="linux-icon" width="16" height="16" viewBox="0 0 24 24">
                 <g fill="none" fill-rule="evenodd"><path d="m12.594 23.258l-.012.002l-.071.035l-.02.004l-.014-.004l-.071-.036q-.016-.004-.024.006l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.016-.018m.264-.113l-.014.002l-.184.093l-.01.01l-.003.011l.018.43l.005.012l.008.008l.201.092q.019.005.029-.008l.004-.014l-.034-.614q-.005-.019-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.003-.011l.018-.43l-.003-.012l-.01-.01z"/><path fill="currentColor" d="M8.264 15.29a1 1 0 0 1 .822.522l1.892 3.493a1.809 1.809 0 0 1-1.856 2.65l-3.93-.582a1 1 0 0 1-.672-1.563l.623-.89l-.174-.984a1 1 0 0 1 .811-1.159l.985-.173l.623-.89a1 1 0 0 1 .876-.425Zm6.347-.024a1 1 0 0 1 .858-.043l.116.057l.94.543l.966-.259a1 1 0 0 1 1.188.596l.037.111l.259.966l.94.543a1 1 0 0 1 .154 1.623l-.103.078l-3.315 2.188a1.809 1.809 0 0 1-2.805-1.46l.003-.158l.238-3.965a1 1 0 0 1 .524-.82M12 2a4 4 0 0 1 4 4v1c0 1.214.502 2.267 1.166 3.354l.736 1.165c.1.16.195.315.28.457c.32.541.628 1.14.788 1.781a7 7 0 0 1 .194 1.358a2 2 0 0 0-1.932-.516l-.565.151l-.582-.336a2 2 0 0 0-2.996 1.613l-.238 3.965c-.021.345.022.684.121 1.003l-.269.005h-.406q-.114 0-.226-.004c.22-.71.152-1.492-.214-2.167l-1.891-3.493a2 2 0 0 0-3.397-.195l-.385.55l-.33.058a5.4 5.4 0 0 1 .024-1.16c.037-.285.086-.567.152-.832c.198-.792.535-1.459.857-2.02l.437-.74C7.74 10.28 8 9.722 8 9V6a4 4 0 0 1 4-4m-1.438 5.778l-.822.41c.224.597.572 1.156.897 1.6l.204.269l.184.225l.081.094l.25-.141l.329-.197c.176-.109.368-.232.566-.367c.604-.412 1.225-.91 1.662-1.427l-2.316-.58a1.5 1.5 0 0 0-1.035.114"/></g>
@@ -1376,6 +1558,8 @@ const customCodePlaceholder = [
     
     // Normalize new item for comparison (ensure item is valid)
     const newItemNormalized = normalizeItem(item);
+    const oldDisplayedTraffic = getDisplayedTraffic(oldItemNormalized);
+    const newDisplayedTraffic = getDisplayedTraffic(newItemNormalized);
     
     // Update system name
     if (oldItemNormalized.name !== newItemNormalized.name) {
@@ -1820,7 +2004,10 @@ const customCodePlaceholder = [
     
     // Update total network In traffic (separate from IP update)
     // This handles cases where traffic stats change but IP address hasn't changed
-    if (oldItemNormalized.total_net_in_bytes !== newItemNormalized.total_net_in_bytes) {
+    if (
+      oldDisplayedTraffic.inBytes !== newDisplayedTraffic.inBytes ||
+      oldDisplayedTraffic.monthly !== newDisplayedTraffic.monthly
+    ) {
       const nameAndIpContainer = itemElement.querySelector('.flex-1.min-w-0.flex.items-center.gap-3');
       if (!nameAndIpContainer) {
         return; // Can't update without container
@@ -1829,19 +2016,19 @@ const customCodePlaceholder = [
       let trafficContainer = nameAndIpContainer.querySelector('.traffic-info-container');
       
       // If traffic container doesn't exist and we have traffic data, create it
-      if (!trafficContainer && (item.total_net_in_bytes || item.total_net_out_bytes)) {
+      if (!trafficContainer && (newDisplayedTraffic.inBytes || newDisplayedTraffic.outBytes)) {
         const trafficHTML = `
           <div class="traffic-info-container hidden sm:flex flex-col gap-1 text-xs min-h-[48px] flex-shrink-0 justify-center" style="font-variant-numeric: tabular-nums; min-width: 110px;">
-            ${item.total_net_in_bytes ? `
-            <div class="flex items-center min-h-[22px]">
-              <span class="system-total-net-in text-[#525252] dark:text-[#737373]">In: ${typeof formatBytes === 'function' ? formatBytes(item.total_net_in_bytes) : '0 B'}</span>
+            ${newDisplayedTraffic.inBytes ? `
+            <div class="flex items-center min-h-[22px]" data-traffic-direction="in">
+              <span class="system-total-net-in text-[#525252] dark:text-[#737373]">${newDisplayedTraffic.prefix}In: ${typeof formatBytes === 'function' ? formatBytes(newDisplayedTraffic.inBytes) : '0 B'}</span>
             </div>
-            ` : '<div class="min-h-[22px]"></div>'}
-            ${item.total_net_out_bytes ? `
-            <div class="flex items-center min-h-[22px]">
-              <span class="system-total-net-out text-[#525252] dark:text-[#737373]">Out: ${typeof formatBytes === 'function' ? formatBytes(item.total_net_out_bytes) : '0 B'}</span>
+            ` : '<div class="min-h-[22px]" data-traffic-direction="in"></div>'}
+            ${newDisplayedTraffic.outBytes ? `
+            <div class="flex items-center min-h-[22px]" data-traffic-direction="out">
+              <span class="system-total-net-out text-[#525252] dark:text-[#737373]">${newDisplayedTraffic.prefix}Out: ${typeof formatBytes === 'function' ? formatBytes(newDisplayedTraffic.outBytes) : '0 B'}</span>
             </div>
-            ` : '<div class="min-h-[22px]"></div>'}
+            ` : '<div class="min-h-[22px]" data-traffic-direction="out"></div>'}
           </div>
         `;
         const tempDiv = document.createElement('div');
@@ -1854,19 +2041,18 @@ const customCodePlaceholder = [
       
       // Update In traffic value
       if (trafficContainer) {
-        const allRows = trafficContainer.querySelectorAll('.flex.items-center');
-        let inRow = allRows[0]; // First row is In
+        const inRow = trafficContainer.querySelector('[data-traffic-direction="in"]');
         
-        if (item.total_net_in_bytes && item.total_net_in_bytes > 0) {
-          const formattedIn = typeof formatBytes === 'function' ? formatBytes(item.total_net_in_bytes) : '0 B';
+        if (newDisplayedTraffic.inBytes > 0) {
+          const formattedIn = typeof formatBytes === 'function' ? formatBytes(newDisplayedTraffic.inBytes) : '0 B';
           let netInSpan = inRow?.querySelector('.system-total-net-in');
           if (netInSpan) {
-            netInSpan.textContent = `In: ${formattedIn}`;
+            netInSpan.textContent = `${newDisplayedTraffic.prefix}In: ${formattedIn}`;
           } else if (inRow) {
             // Create the span if it doesn't exist
             netInSpan = document.createElement('span');
             netInSpan.className = 'system-total-net-in text-[#525252] dark:text-[#737373]';
-            netInSpan.textContent = `In: ${formattedIn}`;
+            netInSpan.textContent = `${newDisplayedTraffic.prefix}In: ${formattedIn}`;
             inRow.appendChild(netInSpan);
           }
         } else {
@@ -1881,7 +2067,10 @@ const customCodePlaceholder = [
     
     // Update total network Out traffic (separate from IP update)
     // This handles cases where traffic stats change but IP address hasn't changed
-    if (oldItemNormalized.total_net_out_bytes !== newItemNormalized.total_net_out_bytes) {
+    if (
+      oldDisplayedTraffic.outBytes !== newDisplayedTraffic.outBytes ||
+      oldDisplayedTraffic.monthly !== newDisplayedTraffic.monthly
+    ) {
       const nameAndIpContainer = itemElement.querySelector('.flex-1.min-w-0.flex.items-center.gap-3');
       if (!nameAndIpContainer) {
         return; // Can't update without container
@@ -1890,19 +2079,19 @@ const customCodePlaceholder = [
       let trafficContainer = nameAndIpContainer.querySelector('.traffic-info-container');
       
       // If traffic container doesn't exist and we have traffic data, create it
-      if (!trafficContainer && (item.total_net_in_bytes || item.total_net_out_bytes)) {
+      if (!trafficContainer && (newDisplayedTraffic.inBytes || newDisplayedTraffic.outBytes)) {
         const trafficHTML = `
           <div class="traffic-info-container hidden sm:flex flex-col gap-1 text-xs min-h-[48px] flex-shrink-0 justify-center" style="font-variant-numeric: tabular-nums; min-width: 110px;">
-            ${item.total_net_in_bytes ? `
-            <div class="flex items-center min-h-[22px]">
-              <span class="system-total-net-in text-[#525252] dark:text-[#737373]">In: ${typeof formatBytes === 'function' ? formatBytes(item.total_net_in_bytes) : '0 B'}</span>
+            ${newDisplayedTraffic.inBytes ? `
+            <div class="flex items-center min-h-[22px]" data-traffic-direction="in">
+              <span class="system-total-net-in text-[#525252] dark:text-[#737373]">${newDisplayedTraffic.prefix}In: ${typeof formatBytes === 'function' ? formatBytes(newDisplayedTraffic.inBytes) : '0 B'}</span>
             </div>
-            ` : '<div class="min-h-[22px]"></div>'}
-            ${item.total_net_out_bytes ? `
-            <div class="flex items-center min-h-[22px]">
-              <span class="system-total-net-out text-[#525252] dark:text-[#737373]">Out: ${typeof formatBytes === 'function' ? formatBytes(item.total_net_out_bytes) : '0 B'}</span>
+            ` : '<div class="min-h-[22px]" data-traffic-direction="in"></div>'}
+            ${newDisplayedTraffic.outBytes ? `
+            <div class="flex items-center min-h-[22px]" data-traffic-direction="out">
+              <span class="system-total-net-out text-[#525252] dark:text-[#737373]">${newDisplayedTraffic.prefix}Out: ${typeof formatBytes === 'function' ? formatBytes(newDisplayedTraffic.outBytes) : '0 B'}</span>
             </div>
-            ` : '<div class="min-h-[22px]"></div>'}
+            ` : '<div class="min-h-[22px]" data-traffic-direction="out"></div>'}
           </div>
         `;
         const tempDiv = document.createElement('div');
@@ -1915,19 +2104,18 @@ const customCodePlaceholder = [
       
       // Update Out traffic value
       if (trafficContainer) {
-        const allRows = trafficContainer.querySelectorAll('.flex.items-center');
-        let outRow = allRows[1]; // Second row is Out
+        const outRow = trafficContainer.querySelector('[data-traffic-direction="out"]');
         
-        if (item.total_net_out_bytes && item.total_net_out_bytes > 0) {
-          const formattedOut = typeof formatBytes === 'function' ? formatBytes(item.total_net_out_bytes) : '0 B';
+        if (newDisplayedTraffic.outBytes > 0) {
+          const formattedOut = typeof formatBytes === 'function' ? formatBytes(newDisplayedTraffic.outBytes) : '0 B';
           let netOutSpan = outRow?.querySelector('.system-total-net-out');
           if (netOutSpan) {
-            netOutSpan.textContent = `Out: ${formattedOut}`;
+            netOutSpan.textContent = `${newDisplayedTraffic.prefix}Out: ${formattedOut}`;
           } else if (outRow) {
             // Create the span if it doesn't exist
             netOutSpan = document.createElement('span');
             netOutSpan.className = 'system-total-net-out text-[#525252] dark:text-[#737373]';
-            netOutSpan.textContent = `Out: ${formattedOut}`;
+            netOutSpan.textContent = `${newDisplayedTraffic.prefix}Out: ${formattedOut}`;
             outRow.appendChild(netOutSpan);
           }
         } else {
@@ -2285,46 +2473,10 @@ const customCodePlaceholder = [
       btn.dataset.wired = '1';
       const newBtn = btn;
       
-      newBtn.addEventListener('click', async (e) => {
+      newBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const systemId = newBtn.dataset.systemId;
-        const serverUrl = window.location.origin;
-        
-        // Get system secret from the system data
         const system = JSON.parse(newBtn.closest('.draggable-item').querySelector('.edit-btn').dataset.system);
-        const secret = system.secret || '';
-        
-        // Build command with secret if available
-        let command = `curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.sh | sudo bash -s -- --id ${shellQuote(systemId)} --server ${shellQuote(serverUrl)}`;
-        if (secret) {
-          command += ` --secret ${shellQuote(secret)}`;
-        }
-        
-        const linuxIcon = newBtn.querySelector('.linux-icon');
-        const checkIcon = newBtn.querySelector('.check-icon');
-        const originalTitle = newBtn.title;
-        
-        const success = await copyToClipboard(command);
-        
-        if (success) {
-          if (linuxIcon && checkIcon) {
-            linuxIcon.style.display = 'none';
-            checkIcon.style.display = 'block';
-            newBtn.classList.add('text-green-600', 'dark:text-green-400');
-            newBtn.title = 'Copied!';
-            setTimeout(() => {
-              linuxIcon.style.display = 'block';
-              checkIcon.style.display = 'none';
-              newBtn.classList.remove('text-green-600', 'dark:text-green-400');
-              newBtn.title = originalTitle;
-            }, 1500);
-          }
-        } else {
-          newBtn.title = 'Copy failed';
-          setTimeout(() => {
-            newBtn.title = originalTitle;
-          }, 2000);
-        }
+        openLinuxInstallModal(system);
       });
     });
 
@@ -2925,6 +3077,8 @@ const customCodePlaceholder = [
       const systemId = formData.get('original-id');
       const systemName = formData.get('name')?.trim();
       const tagsInput = formData.get('tags')?.trim() || '';
+      const trafficLimitInput = String(formData.get('traffic_limit') || '').trim();
+      const trafficLimitUnit = formData.get('traffic_limit_unit') === 'GB' ? 'GB' : 'TB';
 
       // Validate
       if (!systemId || !systemName || systemId.trim() === '' || systemName.trim() === '') {
@@ -2932,16 +3086,24 @@ const customCodePlaceholder = [
         return;
       }
 
-      // Disable submit button during request
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Updating...';
-      }
-
       // Parse tags from comma-separated string
       const tags = tagsInput
         ? tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
         : [];
+
+      const trafficLimitValue = trafficLimitInput === '' ? 0 : Number(trafficLimitInput);
+      if (!Number.isFinite(trafficLimitValue) || trafficLimitValue < 0) {
+        alert(localStorage.getItem('preferred-language') === 'zh' ? '月流量额度必须是大于或等于 0 的数字' : 'Monthly traffic allowance must be a number greater than or equal to 0');
+        return;
+      }
+      const trafficLimitBytes = Math.round(trafficLimitValue * (trafficLimitUnit === 'TB' ? 1000 ** 4 : 1000 ** 3));
+
+      // Disable submit button only after every client-side validation has
+      // passed, otherwise an invalid allowance would leave the form stuck.
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Updating...';
+      }
 
       const data = {
         id: systemId.trim(),
@@ -2956,6 +3118,7 @@ const customCodePlaceholder = [
         tags: tags,
         hide_on_home: !editForm.elements['show_on_home'].checked,
         hide_tcping: !editForm.elements['show_tcping'].checked,
+        traffic_limit_bytes: trafficLimitBytes,
       };
 
 
@@ -4387,6 +4550,8 @@ const customCodePlaceholder = [
     'showTcpingLabel': { en: 'Show TCPing', zh: '展示 TCPing' },
     'showTcpingDesc': { en: 'When off, the homepage hides the TCPing chart for this service.', zh: '关闭后首页不再展示该服务的 TCPing 图表。' },
     'tagsHint': { en: 'Enter tags separated by commas (e.g., Python, traffic:in, speed:in, spr:VIP, spy:staff, spb:pro). Prefix with spr:/spy:/spb: for a red/amber/blue gradient badge.', zh: '输入标签，用逗号分隔（例如：Python, traffic:in, speed:in, spr:VIP, spy:staff, spb:pro）。前缀 spr:/spy:/spb: 分别表示红色 / 金色 / 蓝色起始的渐变彩色徽章。' },
+    'monthlyTrafficLimit': { en: 'Monthly traffic allowance', zh: '每月流量额度' },
+    'monthlyTrafficLimitHint': { en: 'Used for vnStat monthly percentage; leave empty or 0 to show usage only.', zh: '用于计算 vnStat 月流量占比；留空或填 0 时仅显示已用流量。' },
     'cancel': { en: 'Cancel', zh: '取消' },
     'updateSystem': { en: 'Update System', zh: '更新服务' },
     'areYouSureYouWantToDelete': { en: 'Are you sure you want to delete', zh: '您确定要删除' },
@@ -4428,6 +4593,15 @@ const customCodePlaceholder = [
     'showTrafficDesc': { en: 'Display real-time and total traffic in the detail dropdown section', zh: '在下拉详情部分显示实时流量和总流量' },
     'showGlassLabel': { en: 'Glassmorphism Effect', zh: '毛玻璃特效' },
     'showGlassDesc': { en: 'Enable frosted glass visual effect on navbar and cards', zh: '为导航栏和卡片启用毛玻璃视觉效果' },
+    'linuxInstallTitle': { en: 'Linux installation', zh: 'Linux 安装' },
+    'vnstatMonthlyLabel': { en: 'Monthly traffic with vnStat', zh: '使用 vnStat 统计月流量' },
+    'vnstatMonthlyDesc': { en: 'Install vnStat and keep the current billing-cycle total across reboots.', zh: '自动安装 vnStat，重启后继续累计当前账期流量。' },
+    'networkInterfaceLabel': { en: 'Network interface', zh: '统计网卡' },
+    'networkInterfaceHint': { en: 'Leave empty to use the default-route interface.', zh: '留空时自动使用默认路由网卡。' },
+    'trafficResetDayLabel': { en: 'Monthly reset day', zh: '每月重置日' },
+    'trafficResetDayHint': { en: "1–28, using the monitored machine's timezone", zh: '1–28 日，以被监控机器的时区为准' },
+    'vnstatFallbackHint': { en: 'If vnStat cannot be installed, Pulse automatically falls back to interface totals.', zh: '如果 vnStat 无法安装，Pulse 会自动回退到原有网卡累计方式。' },
+    'copyInstallCommand': { en: 'Copy command', zh: '复制命令' },
   };
 
   function updateAdminTranslations() {

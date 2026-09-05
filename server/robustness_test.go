@@ -153,12 +153,12 @@ func TestVisibilityTogglesPersistThroughPushAndAdminEdit(t *testing.T) {
 
 	// Admin creates the system.
 	rr := httptest.NewRecorder()
-	handleIngestMetric(store, nil, rr, adminRequest(t, http.MethodPost, "/api/metrics", map[string]interface{}{"id": "vm1", "name": "VM 1"}))
+	handleIngestMetric(store, nil, rr, adminRequest(t, http.MethodPost, "/api/metrics", map[string]interface{}{"id": "vm1", "name": "VM 1", "traffic_limit_bytes": 1000000000000}))
 	if rr.Code != http.StatusAccepted {
 		t.Fatalf("create: status %d body %s", rr.Code, rr.Body.String())
 	}
 	created, _ := store.Get("vm1")
-	if created == nil || created.HideOnHome || created.HideTCPing {
+	if created == nil || created.HideOnHome || created.HideTCPing || created.TrafficLimitBytes != 1000000000000 {
 		t.Fatalf("new systems must default to shown: %+v", created)
 	}
 
@@ -191,7 +191,7 @@ func TestVisibilityTogglesPersistThroughPushAndAdminEdit(t *testing.T) {
 		t.Fatalf("push: status %d body %s", rr.Code, rr.Body.String())
 	}
 	pushed, _ := store.Get("vm1")
-	if !pushed.HideOnHome || !pushed.HideTCPing {
+	if !pushed.HideOnHome || !pushed.HideTCPing || pushed.TrafficLimitBytes != 1000000000000 {
 		t.Fatalf("agent push reset the toggles: %+v", pushed)
 	}
 	if pushed.Name != "VM 1 renamed" || pushed.CPU != 3.0 || pushed.Location != "US" {
@@ -205,7 +205,7 @@ func TestVisibilityTogglesPersistThroughPushAndAdminEdit(t *testing.T) {
 		t.Fatalf("edit2: status %d body %s", rr.Code, rr.Body.String())
 	}
 	again, _ := store.Get("vm1")
-	if !again.HideOnHome || !again.HideTCPing {
+	if !again.HideOnHome || !again.HideTCPing || again.TrafficLimitBytes != 1000000000000 {
 		t.Fatalf("edit without toggle fields must preserve them: %+v", again)
 	}
 
@@ -219,6 +219,40 @@ func TestVisibilityTogglesPersistThroughPushAndAdminEdit(t *testing.T) {
 		if len(snap) != 1 || !snap[0].HideOnHome {
 			t.Fatalf("snapshot(admin=%v) = %+v, want the hidden system with hide_on_home=true", admin, snap)
 		}
+	}
+}
+
+func TestClientPushPreservesVnStatMonthlyTraffic(t *testing.T) {
+	store := newTestStore(t)
+	registry := NewClientRegistry()
+	ipCache := NewIPCountryCache()
+	if err := store.Upsert(SystemMetric{ID: "monthly", Name: "Monthly", Secret: "test-secret"}); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	body := map[string]interface{}{
+		"id": "monthly", "name": "Monthly", "secret": "test-secret", "uptime": 60,
+		"monthly_net_in_bytes": 123456789, "monthly_net_out_bytes": 987654321,
+		"traffic_source": "vnstat", "traffic_reset_day": 8,
+		"traffic_cycle_start": "2026-08-08", "traffic_cycle_end": "2026-09-08",
+	}
+	data, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/api/clients/push", bytes.NewReader(data))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handleClientPush(store, registry, ipCache, rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("push: status %d body %s", rr.Code, rr.Body.String())
+	}
+
+	metric, err := store.Get("monthly")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if metric.MonthlyNetInBytes != 123456789 || metric.MonthlyNetOutBytes != 987654321 ||
+		metric.TrafficSource != "vnstat" || metric.TrafficResetDay != 8 ||
+		metric.TrafficCycleStart != "2026-08-08" || metric.TrafficCycleEnd != "2026-09-08" {
+		t.Fatalf("monthly traffic fields were not preserved: %+v", metric)
 	}
 }
 
@@ -357,7 +391,7 @@ func TestClientPushShiftsSkewedAgentClock(t *testing.T) {
 
 func TestAgentWriteNeverRevertsConcurrentAdminEdit(t *testing.T) {
 	store := newTestStore(t)
-	if err := store.Upsert(SystemMetric{ID: "race", Name: "Old name", Secret: "s", Order: 1}); err != nil {
+	if err := store.Upsert(SystemMetric{ID: "race", Name: "Old name", Secret: "s", Order: 1, TrafficLimitBytes: 1000}); err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
 
@@ -373,6 +407,7 @@ func TestAgentWriteNeverRevertsConcurrentAdminEdit(t *testing.T) {
 	edited.Order = 7
 	edited.HideOnHome = true
 	edited.HideTCPing = true
+	edited.TrafficLimitBytes = 2000
 	if err := store.Upsert(edited); err != nil {
 		t.Fatalf("admin Upsert: %v", err)
 	}
@@ -385,7 +420,7 @@ func TestAgentWriteNeverRevertsConcurrentAdminEdit(t *testing.T) {
 	if got.CPU != 55 {
 		t.Fatalf("agent metrics not written: %+v", got)
 	}
-	if got.Name != "New name" || len(got.Tags) != 1 || got.Order != 7 || !got.HideOnHome || !got.HideTCPing || got.Secret != "s" {
+	if got.Name != "New name" || len(got.Tags) != 1 || got.Order != 7 || !got.HideOnHome || !got.HideTCPing || got.Secret != "s" || got.TrafficLimitBytes != 2000 {
 		t.Fatalf("UpsertFromAgent reverted admin-owned fields: %+v", got)
 	}
 
@@ -394,7 +429,7 @@ func TestAgentWriteNeverRevertsConcurrentAdminEdit(t *testing.T) {
 		t.Fatalf("SaveClientPushBatch: %v", err)
 	}
 	got, _ = store.Get("race")
-	if got.CPU != 66 || got.Name != "New name" || !got.HideOnHome || !got.HideTCPing || got.Order != 7 {
+	if got.CPU != 66 || got.Name != "New name" || !got.HideOnHome || !got.HideTCPing || got.Order != 7 || got.TrafficLimitBytes != 2000 {
 		t.Fatalf("SaveClientPushBatch reverted admin-owned fields: %+v", got)
 	}
 }

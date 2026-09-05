@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Pulse Client Installation Script for Linux and macOS
-# Usage: curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.sh | sudo bash -s -- --id YOUR_ID --server http://YOUR_SERVER:8080
+# Usage: curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- --id YOUR_ID --server http://YOUR_SERVER:8080
 #
 
 set -e
@@ -20,12 +20,15 @@ NC='\033[0m' # No Color
 INSTALL_DIR="/opt/pulse"
 SERVICE_NAME="pulse-client"
 UPDATE_SERVICE_NAME="pulse-client-update"
-GITHUB_REPO="https://raw.githubusercontent.com/xhhcn/Pulse/main/client"
+GITHUB_REPO="https://raw.githubusercontent.com/aoomee/Pulse/main/client"
 CLIENT_PORT="9090"
 AGENT_NAME=""
 SECRET=""
 AUTO_UPDATE=true
 UPDATE_INTERVAL="daily"
+VNSTAT_ENABLED=false
+VNSTAT_INTERFACE=""
+TRAFFIC_RESET_DAY="1"
 
 # macOS launchd constants
 MACOS_PLIST_LABEL="com.pulse.client"
@@ -65,6 +68,14 @@ validate_config_values() {
     reject_multiline_value "Client port" "$CLIENT_PORT"
     reject_multiline_value "Secret" "$SECRET"
     reject_multiline_value "Update interval" "$UPDATE_INTERVAL"
+    reject_multiline_value "vnStat interface" "$VNSTAT_INTERFACE"
+    reject_multiline_value "Traffic reset day" "$TRAFFIC_RESET_DAY"
+    if ! [[ "$TRAFFIC_RESET_DAY" =~ ^([1-9]|1[0-9]|2[0-8])$ ]]; then
+        error "Traffic reset day must be between 1 and 28"
+    fi
+    if [ -n "$VNSTAT_INTERFACE" ] && ! [[ "$VNSTAT_INTERFACE" =~ ^[A-Za-z0-9_.:@-]+$ ]]; then
+        error "vnStat interface contains unsupported characters"
+    fi
 }
 
 systemd_escape_env() {
@@ -128,6 +139,20 @@ parse_args() {
                 UPDATE_INTERVAL="$2"
                 shift 2
                 ;;
+            --vnstat)
+                VNSTAT_ENABLED=true
+                shift
+                ;;
+            --vnstat-interface)
+                VNSTAT_ENABLED=true
+                VNSTAT_INTERFACE="$2"
+                shift 2
+                ;;
+            --traffic-reset-day)
+                VNSTAT_ENABLED=true
+                TRAFFIC_RESET_DAY="$2"
+                shift 2
+                ;;
             --help|-h)
                 show_help
                 exit 0
@@ -156,14 +181,18 @@ show_help() {
     echo "  --update-interval T  Update check interval (default: daily)"
     echo "                       Linux values: daily, hourly, weekly, or OnCalendar expression"
     echo "                       macOS values: daily, hourly, weekly"
+    echo "  --vnstat             Enable reboot-safe monthly traffic statistics (Linux)"
+    echo "  --vnstat-interface I Network interface to monitor (auto-detected if omitted)"
+    echo "  --traffic-reset-day D Billing-cycle reset day, 1-28 (default: 1)"
     echo "  --help, -h           Show this help message"
     echo ""
     echo "Example:"
     echo "  $0 --id my-server-1 --server http://monitor.example.com:8080 --secret my-secret"
     echo "  $0 --id my-server-1 --server http://monitor.example.com:8080 --no-auto-update"
+    echo "  $0 --id my-server-1 --server http://monitor.example.com:8080 --vnstat --traffic-reset-day 8"
     echo ""
     echo "Or using curl:"
-    echo "  curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.sh | sudo bash -s -- --id my-server-1 --server http://monitor.example.com:8080 --secret my-secret"
+    echo "  curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- --id my-server-1 --server http://monitor.example.com:8080 --secret my-secret"
 }
 
 # Prompt for required values if not provided
@@ -261,6 +290,71 @@ download_binary() {
     success "Downloaded and installed probe-client"
 }
 
+setup_vnstat() {
+    [ "$VNSTAT_ENABLED" = true ] || return 0
+
+    if [[ "$OS" != "Linux" ]]; then
+        warn "vnStat auto-install is currently supported on Linux only; using Pulse interface totals"
+        VNSTAT_ENABLED=false
+        return 0
+    fi
+
+    if ! command -v vnstat &>/dev/null; then
+        info "Installing vnStat for monthly traffic statistics..."
+        if command -v apt-get &>/dev/null; then
+            apt-get update && apt-get install -y vnstat || true
+        elif command -v dnf &>/dev/null; then
+            dnf install -y vnstat || true
+        elif command -v yum &>/dev/null; then
+            yum install -y vnstat || true
+        elif command -v pacman &>/dev/null; then
+            pacman -S --needed --noconfirm vnstat || true
+        elif command -v apk &>/dev/null; then
+            apk add --no-cache vnstat || true
+        elif command -v zypper &>/dev/null; then
+            zypper --non-interactive install vnstat || true
+        fi
+    fi
+
+    if ! command -v vnstat &>/dev/null; then
+        warn "vnStat could not be installed; Pulse will use interface totals"
+        VNSTAT_ENABLED=false
+        return 0
+    fi
+
+    if [ -z "$VNSTAT_INTERFACE" ] && command -v ip &>/dev/null; then
+        VNSTAT_INTERFACE=$(ip -4 route list default 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "dev") {print $(i+1); exit}}')
+        if [ -z "$VNSTAT_INTERFACE" ]; then
+            VNSTAT_INTERFACE=$(ip -6 route list default 2>/dev/null | awk '{for (i=1; i<=NF; i++) if ($i == "dev") {print $(i+1); exit}}')
+        fi
+    fi
+
+    local vnstat_config="/etc/vnstat.conf"
+    if [ -f "$vnstat_config" ]; then
+        if grep -qE '^[;#[:space:]]*MonthRotate[[:space:]]+[0-9]+' "$vnstat_config"; then
+            sed -i.bak -E "s/^[;#[:space:]]*MonthRotate[[:space:]]+[0-9]+/MonthRotate ${TRAFFIC_RESET_DAY}/" "$vnstat_config"
+            rm -f "${vnstat_config}.bak"
+        else
+            printf '\nMonthRotate %s\n' "$TRAFFIC_RESET_DAY" >> "$vnstat_config"
+        fi
+    fi
+
+    if [ -n "$VNSTAT_INTERFACE" ]; then
+        vnstat --add --iface "$VNSTAT_INTERFACE" >/dev/null 2>&1 || vnstat -u -i "$VNSTAT_INTERFACE" >/dev/null 2>&1 || true
+    fi
+    if command -v systemctl &>/dev/null; then
+        systemctl enable --now vnstat >/dev/null 2>&1 || systemctl enable --now vnstatd >/dev/null 2>&1 || true
+        systemctl restart vnstat >/dev/null 2>&1 || systemctl restart vnstatd >/dev/null 2>&1 || true
+    elif command -v rc-service &>/dev/null; then
+        rc-update add vnstat default >/dev/null 2>&1 || true
+        rc-service vnstat restart >/dev/null 2>&1 || true
+    elif command -v service &>/dev/null; then
+        service vnstat restart >/dev/null 2>&1 || service vnstatd restart >/dev/null 2>&1 || true
+    fi
+
+    success "vnStat monthly traffic enabled (interface: ${VNSTAT_INTERFACE:-default}, reset day: ${TRAFFIC_RESET_DAY})"
+}
+
 # ─── Linux: systemd service ───────────────────────────────────────────────────
 
 create_service_linux() {
@@ -272,6 +366,11 @@ create_service_linux() {
     env_lines+="Environment=\"SERVER_BASE=$(systemd_escape_env "$SERVER_BASE")\""$'\n'
     env_lines+="Environment=\"CLIENT_PORT=$(systemd_escape_env "$CLIENT_PORT")\""$'\n'
     [ -n "$SECRET" ]     && env_lines+="Environment=\"SECRET=$(systemd_escape_env "$SECRET")\""$'\n'
+    if [ "$VNSTAT_ENABLED" = true ]; then
+        env_lines+="Environment=\"VNSTAT_ENABLED=true\""$'\n'
+        [ -n "$VNSTAT_INTERFACE" ] && env_lines+="Environment=\"VNSTAT_INTERFACE=$(systemd_escape_env "$VNSTAT_INTERFACE")\""$'\n'
+        env_lines+="Environment=\"TRAFFIC_RESET_DAY=$(systemd_escape_env "$TRAFFIC_RESET_DAY")\""$'\n'
+    fi
 
     cat > /etc/systemd/system/${SERVICE_NAME}.service << EOF
 [Unit]
@@ -353,6 +452,11 @@ create_service_macos() {
     env_xml+="        <key>SERVER_BASE</key>"$'\n'"        <string>$(xml_escape "$SERVER_BASE")</string>"$'\n'
     env_xml+="        <key>CLIENT_PORT</key>"$'\n'"        <string>$(xml_escape "$CLIENT_PORT")</string>"$'\n'
     [ -n "$SECRET" ] && env_xml+="        <key>SECRET</key>"$'\n'"        <string>$(xml_escape "$SECRET")</string>"$'\n'
+    if [ "$VNSTAT_ENABLED" = true ]; then
+        env_xml+="        <key>VNSTAT_ENABLED</key>"$'\n'"        <string>true</string>"$'\n'
+        [ -n "$VNSTAT_INTERFACE" ] && env_xml+="        <key>VNSTAT_INTERFACE</key>"$'\n'"        <string>$(xml_escape "$VNSTAT_INTERFACE")</string>"$'\n'
+        env_xml+="        <key>TRAFFIC_RESET_DAY</key>"$'\n'"        <string>$(xml_escape "$TRAFFIC_RESET_DAY")</string>"$'\n'
+    fi
 
     cat > "$MACOS_PLIST_PATH" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -457,7 +561,7 @@ create_update_script() {
 
 INSTALL_DIR="/opt/pulse"
 SERVICE_NAME="pulse-client"
-GITHUB_REPO="https://raw.githubusercontent.com/xhhcn/Pulse/main/client"
+GITHUB_REPO="https://raw.githubusercontent.com/aoomee/Pulse/main/client"
 CURRENT_BINARY="${INSTALL_DIR}/probe-client"
 TEMP_BINARY="${INSTALL_DIR}/probe-client.tmp"
 MACOS_PLIST_PATH="/Library/LaunchDaemons/com.pulse.client.plist"
@@ -622,6 +726,7 @@ show_status() {
     [ -n "$SECRET" ] && echo "  Secret:        ${SECRET:0:4}**** (hidden)"
     echo "  Install Dir:   $INSTALL_DIR"
     echo "  Auto-Update:   $([ "$AUTO_UPDATE" = true ] && echo "Enabled (${UPDATE_INTERVAL})" || echo "Disabled")"
+    echo "  Monthly Traffic: $([ "$VNSTAT_ENABLED" = true ] && echo "vnStat (${VNSTAT_INTERFACE:-default interface}, resets day ${TRAFFIC_RESET_DAY})" || echo "Interface totals (resets on reboot)")"
     echo ""
 
     if [[ "$OS" == "Darwin" ]]; then
@@ -697,6 +802,7 @@ main() {
 
     detect_arch
     validate_config_values
+    setup_vnstat
     download_binary
     create_service
 

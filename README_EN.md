@@ -37,6 +37,14 @@
 
 ---
 
+## Monthly traffic and dashboard changes in this fork
+
+This branch adds optional vnStat billing-cycle traffic, per-server allowances, aligned compact meters, and a gentle one-time entrance animation.
+
+**Deployment: these are source changes, not a published release.** Upstream images/releases and inherited client binaries do not include them. Rebuild both server and clients from this branch. Before using the generated Linux installer command, merge into `aoomee/Pulse`'s `main`, enable and wait for the `Build Client Binaries` workflow to update the client files. Linux installation and automatic updates now use this fork rather than upstream.
+
+vnStat only records traffic after collection starts; it cannot recover earlier usage. Changing the reset day does not recalculate existing history. The installer modifies `MonthRotate` in `/etc/vnstat.conf`, affecting other vnStat users on that machine. Windows/macOS retain the original accounting method.
+
 ## ✨ What's New in v1.3.0
 
 - 🔐 **Shared Secret Authentication** - All clients use a unified shared secret to connect to the server, simplifying deployment
@@ -243,16 +251,29 @@ Pulse supports IPv4/IPv6 dual-stack. If your server requires IPv6 support, pleas
 ### Linux
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
+
+Linux clients can optionally use vnStat for current-month or billing-cycle traffic. Click the Linux icon beside a machine in the admin panel and enable “Monthly traffic with vnStat” to generate the command, or install it manually:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+  --id <ID> --server <SERVER_URL> --secret <SECRET> \
+  --vnstat --traffic-reset-day 8 --vnstat-interface eth0
+```
+
+- `--traffic-reset-day` accepts `1`–`28` and rotates in the monitored machine's local timezone.
+- `--vnstat-interface` is optional; the installer first tries to detect the default-route interface.
+- The script installs vnStat with the Linux distribution's package manager and uses it only as an optional data source. If installation fails, the database is not ready, or vnStat cannot be read, the client automatically falls back to Pulse's original interface totals. Windows and macOS keep the original traffic mode.
+- Set a per-machine monthly allowance (GB/TB) from “Edit Service” in the admin panel. For vnStat machines, the homepage shows a progress bar based on combined download and upload usage. Allowances use the decimal convention common to network plans (1 TB = 1000 GB); leave the field empty or set it to 0 to show usage without a percentage.
 
 ### macOS (Intel / Apple Silicon)
 
 The install script auto-detects CPU architecture and registers the service as a `launchd` daemon (auto-starts on boot):
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
 

@@ -12,20 +12,12 @@ const apiBase = apiBaseProp ?? '';
   id="monitor-root"
   data-api-base={apiBase}
   class="glass-card mx-auto max-w-7xl rounded-xl border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#1c1c1c] dark:bg-[#1c1c1c] bg-white p-2 sm:p-4 md:p-6"
-  style="--first-col-width: 160px;"
 >
   <SystemTableHeader />
 
   <!-- 表格容器 - 独立边框 -->
-  <div class="glass-inner rounded-xl border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#181818] dark:bg-[#181818] bg-[#fafafa] overflow-x-auto" style="scrollbar-width: none; -ms-overflow-style: none;">
-    <style>
-      #monitor-root .overflow-x-auto::-webkit-scrollbar {
-        display: none;
-      }
-      /* CSS variable --first-col-width is now defined inline on #monitor-root element
-         This avoids timing issues between <style> rules and inline style modifications */
-    </style>
-    <div class="min-w-[1000px]">
+  <div class="glass-inner system-table-frame rounded-xl border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#181818] dark:bg-[#181818] bg-[#fafafa]">
+    <div class="system-table-content">
       <SystemTableHeaderRow />
 
       <!-- 表格主体 -->
@@ -369,34 +361,6 @@ const apiBase = apiBaseProp ?? '';
     return pending;
   };
 
-  const loadOSIcons = async () => {
-    const iconElements = document.querySelectorAll('.os-icon');
-    await Promise.all(Array.from(iconElements).map(async (el) => {
-      const iconName = el.dataset.icon;
-      if (!iconName) return;
-      // Skip elements that already have an SVG rendered for the same
-      // icon — prevents flicker and avoids re-styling on every render.
-      if (el.dataset.iconLoaded === iconName && el.querySelector('svg')) return;
-      const svg = await fetchIconSvg(iconName, 26);
-      if (!svg) return;
-      el.innerHTML = svg;
-      el.dataset.iconLoaded = iconName;
-      const svgEl = el.querySelector('svg');
-      if (svgEl) {
-        svgEl.setAttribute('class', 'block leading-none w-5 h-5 sm:w-[26px] sm:h-[26px]');
-        svgEl.style.margin = '0';
-        svgEl.style.padding = '0';
-        svgEl.style.display = 'block';
-        svgEl.style.verticalAlign = 'middle';
-        svgEl.style.lineHeight = '1';
-        svgEl.style.width = '100%';
-        svgEl.style.height = '100%';
-        svgEl.style.maxWidth = '100%';
-        svgEl.style.maxHeight = '100%';
-      }
-    }));
-  };
-
   const loadFlagIcons = async () => {
     const flagElements = document.querySelectorAll('.flag-icon');
     await Promise.all(Array.from(flagElements).map(async (el) => {
@@ -437,14 +401,25 @@ const apiBase = apiBaseProp ?? '';
   // Cache current data for comparison
   let currentData = new Map(); // key: system ID, value: system data
 
-  // Latched the FIRST time the table renders rows. Without this latch,
-  // every transient empty payload (server hiccup, all clients momentarily
-  // unreported, …) would clear `currentData` and cause the row stagger
-  // (`data-row-in`) to replay the next time data comes back — which the
-  // user perceives as "the dashboard keeps fading in from the top". The
-  // stagger is meant to be a first-impression delight, not a refresh
-  // signal, so we run it exactly once per page session.
-  let staggerAnimationPlayed = false;
+  // Animate the settled list once, never individual rows. A WAAPI fade
+  // does not restart when sorting moves nodes or an auth gate unhides them.
+  let tableEntrancePlayed = false;
+  function revealTableOnce() {
+    if (tableEntrancePlayed) return;
+    tableEntrancePlayed = true;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // If auth is still covering the page, its overlay supplies the reveal.
+    if (!body?.getClientRects().length) return;
+    body.animate([{ opacity: 0.55 }, { opacity: 1 }], {
+      duration: 240,
+      easing: 'ease-out'
+    });
+  }
+
+  function showTableHeader() {
+    const header = document.getElementById('system-table-header-row');
+    if (header) header.style.display = 'grid';
+  }
 
   // Sort state (temporary, not persisted)
   let currentSort = {
@@ -666,93 +641,6 @@ const apiBase = apiBaseProp ?? '';
 
   const pct = (val) => Math.min(Math.max(val || 0, 0), 100);
 
-  // Pre-calculate server name column width from data (before rendering DOM)
-  // This prevents visual jitter by setting the correct width from the start
-  function calculateServerNameColumnWidth(items) {
-    if (!items || items.length === 0) return 100;
-    
-    let maxWidth = 100; // Minimum width in pixels (reduced for better mobile experience)
-    
-    // Create a temporary hidden span to measure text width accurately
-    const tempSpan = document.createElement('span');
-    // Match the global body font stack (global.css line 12) so measurements
-    // reflect what Inter actually renders. Using a generic sans-serif here
-    // would cause the measurement to silently drift from the real row width
-    // (different glyph metrics → first column too wide or too narrow → the
-    // very column-jitter we went to great lengths to eliminate).
-    tempSpan.style.cssText = `
-      position: absolute;
-      visibility: hidden;
-      white-space: nowrap;
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      letter-spacing: normal;
-    `;
-    // Add responsive font size calculation (text-[10px] sm:text-xs)
-    const isSmallScreen = window.innerWidth < 640;
-    if (isSmallScreen) {
-      tempSpan.style.fontSize = '10px';
-    }
-    
-    document.body.appendChild(tempSpan);
-    
-    // Measure each server name
-    items.forEach(item => {
-      const name = item.name || 'unknown';
-      tempSpan.textContent = name;
-      const textWidth = tempSpan.offsetWidth;
-      
-      // Add space for UI elements and ensure complete text display:
-      // - Status dot: ~8px (w-1.5 sm:w-2)
-      // - Gap after dot: 6px (gap-1.5)
-      // - Gap before button: 6px (gap-1.5)
-      // - Copy button: ~14px (w-2.5 sm:w-3)
-      // - Extra buffer for font rendering variations: ~16px
-      const uiElementsWidth = isSmallScreen ? 44 : 50; // Mobile: 44px, Desktop: 50px
-      const estimatedCellWidth = textWidth + uiElementsWidth;
-      maxWidth = Math.max(maxWidth, estimatedCellWidth);
-    });
-    
-    document.body.removeChild(tempSpan);
-    
-    // Return the calculated width based on longest name
-    // Table container has overflow-x-auto for horizontal scrolling on mobile if needed
-    return Math.ceil(maxWidth);
-  }
-  
-  // Apply the pre-calculated column width to all rows and header
-  function applyServerNameColumnWidth(columnWidth) {
-    // Update CSS variable at root level - this automatically affects all elements using var(--first-col-width)
-    // Including: header row, loading skeleton rows, and all data rows
-    const root = document.getElementById('monitor-root');
-    if (root) {
-      // CRITICAL: Only increase width, never decrease
-      // This prevents LoadingState from being too narrow during SSE updates
-      // When adding a system with a longer name, the LoadingState will expand correctly
-      const currentWidthStr = root.style.getPropertyValue('--first-col-width');
-      const currentWidth = parseInt(currentWidthStr) || 160;
-      
-      // Use the larger of current width or new calculated width
-      const newWidth = Math.max(currentWidth, columnWidth);
-      
-      root.style.setProperty('--first-col-width', `${newWidth}px`);
-      
-      // CRITICAL: Force browser to immediately recalculate styles (trigger reflow)
-      // Reading offsetHeight forces a synchronous layout recalculation
-      // This ensures the CSS variable change is applied immediately
-      void root.offsetHeight;
-    }
-  }
-  
-  // Recalculate column width from current data (used for incremental updates)
-  function recalculateColumnWidthFromCurrentData() {
-    if (currentData.size === 0) return;
-    const items = Array.from(currentData.values());
-    const width = calculateServerNameColumnWidth(items);
-    applyServerNameColumnWidth(width);
-  }
-
   // Get color class based on value threshold
   const getProgressColor = (value, isOffline = false) => {
     if (isOffline) return 'bg-red-500';
@@ -762,11 +650,18 @@ const apiBase = apiBaseProp ?? '';
     return 'bg-emerald-500';
   };
 
+  // Every percentage metric uses the same geometry. Keeping these classes
+  // shared prevents one column (such as monthly traffic) from silently
+  // drifting to a different bar length later.
+  const progressLabelClass = 'metric-label font-medium tabular-nums';
+  const progressTrackClass = 'progress-track metric-track';
+  const progressBarClass = 'metric-fill absolute inset-y-0 left-0 h-full';
+
   const progress = (value, warn = false, isOffline = false) => `
-    <div class="flex items-center gap-0.5 pr-2 sm:pr-3 min-w-0 w-full">
-      <span class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] w-8 sm:w-10 shrink-0">${value.toFixed(1)}%</span>
-      <div class="progress-track relative h-2.5 sm:h-3 flex-1 min-w-[60px] max-w-[100px] sm:max-w-[120px] overflow-hidden rounded-full bg-[#111] dark:bg-[#111] bg-[#e5e5e5]">
-        <div class="absolute inset-y-0 left-0 h-full rounded-full transition-all duration-500 ease-out ${getProgressColor(value, isOffline)}" style="width:${pct(value)}%"></div>
+    <div class="metric-gauge">
+      <div class="${progressTrackClass}">
+        <div class="${progressBarClass} ${getProgressColor(value, isOffline)}" style="width:${pct(value)}%"></div>
+        <span class="${progressLabelClass}">${value.toFixed(1)}%</span>
     </div>
     </div>
   `;
@@ -787,18 +682,83 @@ const apiBase = apiBaseProp ?? '';
   // Format total traffic bytes to appropriate unit
   function formatTotalTraffic(bytes) {
     if (bytes === 0 || bytes == null) return '0 B';
-    
-    if (bytes < 1024) {
+
+    // Network quotas are sold in decimal units: 1 TB = 1000 GB. Keeping
+    // traffic formatting on the same base makes 500 GB / 1 TB read 50.0%
+    // instead of the surprising binary-unit result of 48.8%.
+    const k = 1000;
+    if (bytes < k) {
       return `${bytes} B`;
-    } else if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(2)} KB`;
-    } else if (bytes < 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-    } else if (bytes < 1024 * 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    } else if (bytes < k ** 2) {
+      return `${(bytes / k).toFixed(2)} KB`;
+    } else if (bytes < k ** 3) {
+      return `${(bytes / k ** 2).toFixed(2)} MB`;
+    } else if (bytes < k ** 4) {
+      return `${(bytes / k ** 3).toFixed(2)} GB`;
     } else {
-      return `${(bytes / (1024 * 1024 * 1024 * 1024)).toFixed(2)} TB`;
+      return `${(bytes / k ** 4).toFixed(2)} TB`;
     }
+  }
+
+  function formatCompactTraffic(bytes) {
+    return formatTotalTraffic(bytes).replace(/\.00 (?=[A-Z])/u, ' ');
+  }
+
+  function getDisplayedTrafficTotals(item) {
+    const monthly = item?.traffic_source === 'vnstat';
+    const inBytes = Number(monthly ? item?.monthly_net_in_bytes : item?.total_net_in_bytes) || 0;
+    const outBytes = Number(monthly ? item?.monthly_net_out_bytes : item?.total_net_out_bytes) || 0;
+    const limitBytes = monthly ? Number(item?.traffic_limit_bytes || 0) : 0;
+    const totalBytes = inBytes + outBytes;
+    return {
+      monthly,
+      inBytes,
+      outBytes,
+      totalBytes,
+      limitBytes,
+      percentage: limitBytes > 0 ? (totalBytes / limitBytes) * 100 : 0,
+      hasLimit: monthly && limitBytes > 0
+    };
+  }
+
+  function renderMainTraffic(displayedTraffic) {
+    if (displayedTraffic.hasLimit) {
+      const percentage = displayedTraffic.percentage;
+      const used = formatCompactTraffic(displayedTraffic.totalBytes);
+      const allowance = formatCompactTraffic(displayedTraffic.limitBytes);
+      return `
+        <div class="metric-quota metric-gauge" data-main-traffic-quota>
+          <div class="${progressTrackClass}" data-main-traffic-track role="meter" aria-label="${getCurrentLanguage() === 'zh' ? '月流量' : 'Monthly traffic'}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct(percentage)}" aria-valuetext="${formatCompactTraffic(displayedTraffic.totalBytes)} / ${formatCompactTraffic(displayedTraffic.limitBytes)}">
+            <div class="${progressBarClass} ${getTrafficProgressColor(percentage)}" style="width:${pct(percentage)}%" data-main-traffic-bar></div>
+            <span class="metric-amount tabular-nums" data-main-traffic-amount data-compact="${used.length + allowance.length > 16}"><span class="metric-amount-used" data-traffic-used>${used}</span><span class="metric-amount-divider">/</span><span data-traffic-allowance>${allowance}</span></span>
+          </div>
+        </div>`;
+    }
+
+    if (displayedTraffic.monthly) {
+      return `
+        <span class="rounded bg-[#e5e5e5] px-1 py-0.5 text-[8px] font-semibold leading-none text-[#525252] dark:bg-[#333] dark:text-[#a3a3a3] sm:text-[9px]" data-translate-detail="monthlyTrafficShort">M</span>
+        <span class="text-[10px] font-medium tabular-nums text-[#262626] dark:text-[#f5f5f5] sm:text-xs" data-main-traffic-value>${formatTotalTraffic(displayedTraffic.totalBytes)}</span>`;
+    }
+
+    return `<span class="text-[10px] font-medium tabular-nums text-[#262626] dark:text-[#f5f5f5] sm:text-xs" data-main-traffic-value>${formatTotalTraffic(displayedTraffic.totalBytes)}</span>`;
+  }
+
+  function getTrafficProgressColor(percentage) {
+    if (percentage >= 90) return 'bg-red-500';
+    if (percentage >= 80) return 'bg-orange-500';
+    return 'bg-emerald-500';
+  }
+
+  function getMainTrafficTitle(item, displayedTraffic) {
+    const parts = [];
+    if (displayedTraffic.hasLimit) {
+      parts.push(`${formatTotalTraffic(displayedTraffic.totalBytes)} / ${formatTotalTraffic(displayedTraffic.limitBytes)}`);
+    }
+    if (displayedTraffic.monthly && item?.traffic_cycle_start && item?.traffic_cycle_end) {
+      parts.push(`${item.traffic_cycle_start} → ${item.traffic_cycle_end}`);
+    }
+    return parts.join(' · ');
   }
 
   // Format traffic speed from MB/s to appropriate unit
@@ -892,26 +852,41 @@ const apiBase = apiBaseProp ?? '';
       ')',
   };
 
+  function getColumnLabels() {
+    return getCurrentLanguage() === 'zh'
+      ? ['服务', '运行时间', '位置', 'CPU', '内存', '磁盘', '流量']
+      : ['Service', 'Time', 'Location', 'CPU', 'Memory', 'Disk', 'Traffic'];
+  }
+
   const renderRow = (item, showTCPing = true) => {
+    const columnLabels = getColumnLabels();
     // Determine if system is offline/paused (alert = true means offline/paused)
     const isOffline = item.alert || false;
     // SECURITY: Escape all user-controlled data
     const safeId = escapeHtmlAttr(item.id || '');
     const safeName = escapeHtml(item.name || 'unknown');
     const safeNameAttr = escapeHtmlAttr(item.name || 'unknown');
+    const hasVnStatMonthly = item.traffic_source === 'vnstat';
+    const displayedTraffic = getDisplayedTrafficTotals(item);
+    const safeCycleTitle = escapeHtmlAttr(
+      item.traffic_cycle_start && item.traffic_cycle_end
+        ? `${item.traffic_cycle_start} → ${item.traffic_cycle_end}`
+        : ''
+    );
+    const safeMainTrafficTitle = escapeHtmlAttr(getMainTrafficTitle(item, displayedTraffic));
     return `
     <div class="system-row" data-system-id="${safeId}">
-      <div class="group grid items-center gap-1.5 px-3 sm:px-4 md:px-6 py-2 sm:py-3 hover:bg-[#222]/50 dark:hover:bg-[#222]/50 hover:bg-[#f5f5f5] cursor-pointer transition-colors" data-system-id="${safeId}" style="grid-template-columns: var(--first-col-width, 100px) minmax(85px,1fr) minmax(90px,1fr) minmax(130px,1.8fr) minmax(130px,1.8fr) minmax(130px,1.8fr) minmax(70px,0.9fr) minmax(70px,0.9fr);">
-        <div class="flex items-center gap-1 min-h-[20px]">
+      <div class="group system-table-grid system-metric-row transition-colors hover:bg-[#f5f5f5] dark:hover:bg-[#222]/50 cursor-pointer" data-system-id="${safeId}">
+        <div class="system-identity relative flex items-center justify-center gap-1.5 min-h-[20px] text-center" data-mobile-label="${columnLabels[0]}">
           <span class="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${isOffline ? 'bg-red-400' : 'bg-emerald-400'} shrink-0"></span>
-          <span class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] whitespace-nowrap">${safeName}</span>
-          <button class="copy-btn text-[#525252] dark:text-[#737373] hover:text-[#151515] dark:hover:text-[#d4d4d4] opacity-0 group-hover:opacity-100 transition-opacity shrink-0" data-system-name="${safeNameAttr}" title="Copy system name">
+          <span class="system-name text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5]" title="${safeNameAttr}">${safeName}</span>
+          <button class="copy-btn text-[#525252] dark:text-[#737373] hover:text-[#151515] dark:hover:text-[#d4d4d4] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0" data-system-name="${safeNameAttr}" title="Copy system name">
             <svg class="copy-icon w-2.5 h-2.5 sm:w-3 sm:h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
             <svg class="check-icon w-2.5 h-2.5 sm:w-3 sm:h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M20 6L9 17l-5-5"/></svg>
           </button>
     </div>
-        <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] h-5 flex items-center">${item.time || '-'}</div>
-        <div class="h-5 flex items-center" title="${escapeHtmlAttr(item.location || '-')}">
+        <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] h-5 flex items-center justify-center text-center" data-mobile-label="${columnLabels[1]}">${item.time || '-'}</div>
+        <div class="h-5 flex items-center justify-center text-center" data-mobile-label="${columnLabels[2]}" title="${escapeHtmlAttr(item.location || '-')}">
           ${item.location ? (() => {
             const flagIcon = countryToFlag(item.location);
             if (flagIcon) {
@@ -922,13 +897,12 @@ const apiBase = apiBaseProp ?? '';
             return `<span class="text-[10px] sm:text-xs text-[#404040] dark:text-[#a3a3a3]">${safeLocation}</span>`;
           })() : '<span class="text-[10px] sm:text-xs text-[#404040] dark:text-[#a3a3a3]">-</span>'}
     </div>
-        <div class="h-5 flex items-center pr-2 sm:pr-3 min-w-0 w-full">${progress(item.cpu || 0, false, isOffline)}</div>
-        <div class="h-5 flex items-center pr-2 sm:pr-3 min-w-0 w-full">${progress(item.memory || 0, false, isOffline)}</div>
-        <div class="h-5 flex items-center pr-2 sm:pr-3 min-w-0 w-full">${progress((item.disk || 0), (item.disk || 0) > 65, isOffline)}</div>
-        <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] h-5 flex items-center">${((item.net_in_mb_s || 0) + (item.net_out_mb_s || 0)).toFixed(2)} MB/s</div>
-        <div class="h-5 flex items-center justify-center w-full" title="${escapeHtmlAttr(item.os || '-')}">
-          ${item.os_icon ? `<span class="os-icon block leading-none w-5 h-5 sm:w-[26px] sm:h-[26px]" data-icon="${escapeHtmlAttr(item.os_icon)}"></span>` : `<span class="text-[10px] sm:text-xs text-[#404040] dark:text-[#a3a3a3]">${escapeHtml(item.os || '-')}</span>`}
-    </div>
+        <div class="h-5 flex items-center justify-center min-w-0 w-full" data-mobile-label="${columnLabels[3]}">${progress(item.cpu || 0, false, isOffline)}</div>
+        <div class="h-5 flex items-center justify-center min-w-0 w-full" data-mobile-label="${columnLabels[4]}">${progress(item.memory || 0, false, isOffline)}</div>
+        <div class="h-5 flex items-center justify-center min-w-0 w-full" data-mobile-label="${columnLabels[5]}">${progress((item.disk || 0), (item.disk || 0) > 65, isOffline)}</div>
+        <div class="relative flex h-5 min-w-0 w-full items-center justify-center gap-0.5 text-center whitespace-nowrap" data-mobile-label="${columnLabels[6]}" data-main-traffic title="${safeMainTrafficTitle}">
+          ${renderMainTraffic(displayedTraffic)}
+        </div>
     </div>
       <!-- Expandable details section -->
       <div class="system-details hidden border-t border-[#404040]/50 dark:border-[#404040]/50 border-[#e5e5e5] bg-[#1a1a1a] dark:bg-[#1a1a1a] bg-[#f8f8f8] overflow-hidden" data-details-id="${safeId}" style="width: 100%;">
@@ -943,9 +917,7 @@ const apiBase = apiBaseProp ?? '';
                 
                 // Check for special traffic tags
                 if (tag === 'traffic:in') {
-                  // Format total network in traffic (cumulative)
-                  const totalNetIn = item.total_net_in_bytes || 0;
-                  const formattedIn = formatTotalTraffic(totalNetIn);
+                  const formattedIn = formatTotalTraffic(displayedTraffic.inBytes);
                   return `
                   <span class="inline-flex items-center gap-1 rounded-md bg-[#262626] dark:bg-[#262626] bg-[#d4d4d4] px-2 py-0.5 text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#f5f5f5]" data-traffic-tag="in" data-system-id="${safeId}">
                     <svg class="w-3 h-3" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -955,9 +927,7 @@ const apiBase = apiBaseProp ?? '';
                   </span>
                   `;
                 } else if (tag === 'traffic:out') {
-                  // Format total network out traffic (cumulative)
-                  const totalNetOut = item.total_net_out_bytes || 0;
-                  const formattedOut = formatTotalTraffic(totalNetOut);
+                  const formattedOut = formatTotalTraffic(displayedTraffic.outBytes);
                   return `
                   <span class="inline-flex items-center gap-1 rounded-md bg-[#262626] dark:bg-[#262626] bg-[#d4d4d4] px-2 py-0.5 text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#f5f5f5]" data-traffic-tag="out" data-system-id="${safeId}">
                     <svg class="w-3 h-3" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1094,24 +1064,26 @@ const apiBase = apiBaseProp ?? '';
               </div>
               `}
             </div>
-            <!-- Total Traffic -->
-            <div class="flex items-center gap-1.5 sm:gap-2" data-traffic-row="total">
-              <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="totalTraffic">Total:</div>
+            <!-- Aggregate traffic: vnStat billing cycle or legacy interface total -->
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2" data-traffic-row="total" title="${hasVnStatMonthly ? safeCycleTitle : ''}">
+              <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="${hasVnStatMonthly ? 'monthlyTraffic' : 'totalTraffic'}">${hasVnStatMonthly ? 'Monthly:' : 'Total:'}</div>
               ${(!item.cpu_model && !item.memory_info && !item.disk_info) ? `
               <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5]" data-traffic-placeholder="total">-</div>
               ` : `
               <div class="flex items-center text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5]" data-traffic-values="total">
                 <span class="flex items-center gap-0.5" data-detail-total="in">
                   <svg class="w-[10px] h-[10px] sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>
-                  <span>${formatTotalTraffic(item.total_net_in_bytes || 0)}</span>
+                  <span>${formatTotalTraffic(displayedTraffic.inBytes)}</span>
                 </span>
                 <span class="text-[#525252] dark:text-[#737373] mx-1">|</span>
                 <span class="flex items-center gap-0.5" data-detail-total="out">
                   <svg class="w-[10px] h-[10px] sm:w-3 sm:h-3 text-blue-600 dark:text-blue-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
-                  <span>${formatTotalTraffic(item.total_net_out_bytes || 0)}</span>
+                  <span>${formatTotalTraffic(displayedTraffic.outBytes)}</span>
                 </span>
               </div>
               `}
+              ${hasVnStatMonthly ? `<span class="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-700 dark:text-emerald-400" data-traffic-source-badge>vnStat · ${Number(item.traffic_reset_day || 1)}</span>` : ''}
+              ${displayedTraffic.hasLimit ? `<span class="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide tabular-nums text-blue-700 dark:text-blue-400" data-traffic-limit-badge>${formatTotalTraffic(displayedTraffic.totalBytes)} / ${formatTotalTraffic(displayedTraffic.limitBytes)} · ${displayedTraffic.percentage.toFixed(1)}%</span>` : ''}
             </div>
             ` : ''}
           </div>
@@ -1171,6 +1143,8 @@ const apiBase = apiBaseProp ?? '';
     'diskInformation': { en: 'Disk:', zh: '磁盘:' },
     'realtimeTraffic': { en: 'Traffic:', zh: '流量:' },
     'totalTraffic': { en: 'Total:', zh: '总量:' },
+    'monthlyTraffic': { en: 'Monthly:', zh: '月流量:' },
+    'monthlyTrafficShort': { en: 'M', zh: '月' },
     'tcpingLatency': { en: 'TCPing Latency (24h)', zh: 'TCPing 延迟 (24小时)' },
     'avgLatency': { en: 'Avg:', zh: '平均:' },
     'packetLoss': { en: 'Loss:', zh: '丢包:' },
@@ -1189,6 +1163,12 @@ const apiBase = apiBaseProp ?? '';
 
   function updateTranslations() {
     const lang = getCurrentLanguage();
+    const columnLabels = getColumnLabels();
+    document.querySelectorAll('.system-metric-row').forEach(row => {
+      Array.from(row.children).forEach((cell, index) => {
+        cell.setAttribute('data-mobile-label', columnLabels[index]);
+      });
+    });
     
     // Update empty state - fix null check
     if (body) {
@@ -1258,20 +1238,8 @@ const apiBase = apiBaseProp ?? '';
 
   const showEmpty = () => {
     if (loadingIndicator) loadingIndicator.style.display = 'none';
-    
-    // CRITICAL: Clear currentData to ensure next load triggers column width calculation
-    // This fixes the issue where deleting all systems and re-adding doesn't recalculate width
+    showTableHeader();
     currentData.clear();
-    
-    // CRITICAL: Force reset column width to default (bypass "only increase" logic)
-    // When showing empty state, we need to actually reset the width, not just try to set a smaller value
-    // The applyServerNameColumnWidth function uses Math.max which prevents decreasing
-    // So we directly set the CSS variable here to force a reset
-    const root = document.getElementById('monitor-root');
-    if (root) {
-      root.style.setProperty('--first-col-width', '160px');
-      void root.offsetHeight; // Force reflow to apply the reset immediately
-    }
     
     if (body) {
       const lang = getCurrentLanguage();
@@ -1307,6 +1275,13 @@ const apiBase = apiBaseProp ?? '';
       net_out_mb_s: Number(item.net_out_mb_s || 0),
       total_net_in_bytes: Number(item.total_net_in_bytes || 0),
       total_net_out_bytes: Number(item.total_net_out_bytes || 0),
+      monthly_net_in_bytes: Number(item.monthly_net_in_bytes || 0),
+      monthly_net_out_bytes: Number(item.monthly_net_out_bytes || 0),
+      traffic_source: String(item.traffic_source || 'interface'),
+      traffic_reset_day: Number(item.traffic_reset_day || 0),
+      traffic_cycle_start: String(item.traffic_cycle_start || ''),
+      traffic_cycle_end: String(item.traffic_cycle_end || ''),
+      traffic_limit_bytes: Number(item.traffic_limit_bytes || 0),
       os: String(item.os || ''),
       os_icon: String(item.os_icon || ''),
       alert: Boolean(item.alert || false),
@@ -1342,6 +1317,15 @@ const apiBase = apiBaseProp ?? '';
       old.disk_info !== new_.disk_info ||
       !floatEqual(old.net_in_mb_s, new_.net_in_mb_s) ||
       !floatEqual(old.net_out_mb_s, new_.net_out_mb_s) ||
+      old.total_net_in_bytes !== new_.total_net_in_bytes ||
+      old.total_net_out_bytes !== new_.total_net_out_bytes ||
+      old.monthly_net_in_bytes !== new_.monthly_net_in_bytes ||
+      old.monthly_net_out_bytes !== new_.monthly_net_out_bytes ||
+      old.traffic_source !== new_.traffic_source ||
+      old.traffic_reset_day !== new_.traffic_reset_day ||
+      old.traffic_cycle_start !== new_.traffic_cycle_start ||
+      old.traffic_cycle_end !== new_.traffic_cycle_end ||
+      old.traffic_limit_bytes !== new_.traffic_limit_bytes ||
       old.os !== new_.os ||
       old.os_icon !== new_.os_icon ||
       old.alert !== new_.alert ||
@@ -1359,17 +1343,19 @@ const apiBase = apiBaseProp ?? '';
     
     // Normalize new item for comparison
     const newItemNormalized = normalizeItem(item);
+    const oldDisplayedTraffic = getDisplayedTrafficTotals(oldItemNormalized);
+    const newDisplayedTraffic = getDisplayedTrafficTotals(newItemNormalized);
     
     // Get all cells (children of the grid row)
     const cells = Array.from(rowElement.children);
-    if (cells.length < 8) return; // Safety check
+    if (cells.length < getColumnLabels().length) return;
     
     // If no old data, update all fields (treat as new item)
     const shouldUpdateAll = !previousItem && !currentData.get(item.id);
     
     // Update traffic tags if they exist and network traffic changed
-    const trafficTagTotalInChanged = oldItemNormalized.total_net_in_bytes !== newItemNormalized.total_net_in_bytes;
-    const trafficTagTotalOutChanged = oldItemNormalized.total_net_out_bytes !== newItemNormalized.total_net_out_bytes;
+    const trafficTagTotalInChanged = oldDisplayedTraffic.inBytes !== newDisplayedTraffic.inBytes;
+    const trafficTagTotalOutChanged = oldDisplayedTraffic.outBytes !== newDisplayedTraffic.outBytes;
     // For speed tags, always consider them changed (speed is real-time and should update every cycle)
     const speedTagInChanged = oldItemNormalized.net_in_mb_s !== newItemNormalized.net_in_mb_s;
     const speedTagOutChanged = oldItemNormalized.net_out_mb_s !== newItemNormalized.net_out_mb_s;
@@ -1380,24 +1366,24 @@ const apiBase = apiBaseProp ?? '';
       // This ensures tags show latest data when user expands the section
       const detailsSection = document.querySelector(`[data-details-id="${item.id}"]`);
       if (detailsSection) {
-        // Update traffic:in tags (total cumulative)
+        // traffic:* tags follow the active aggregate source: vnStat monthly
+        // totals when available, otherwise the legacy interface counters.
         if (trafficTagTotalInChanged || shouldUpdateAll) {
           const trafficInTags = detailsSection.querySelectorAll('[data-traffic-tag="in"]');
           trafficInTags.forEach(tag => {
             const valueSpan = tag.querySelector('.traffic-value');
             if (valueSpan) {
-              valueSpan.textContent = formatTotalTraffic(item.total_net_in_bytes || 0);
+              valueSpan.textContent = formatTotalTraffic(newDisplayedTraffic.inBytes);
             }
           });
         }
         
-        // Update traffic:out tags (total cumulative)
         if (trafficTagTotalOutChanged || shouldUpdateAll) {
           const trafficOutTags = detailsSection.querySelectorAll('[data-traffic-tag="out"]');
           trafficOutTags.forEach(tag => {
             const valueSpan = tag.querySelector('.traffic-value');
             if (valueSpan) {
-              valueSpan.textContent = formatTotalTraffic(item.total_net_out_bytes || 0);
+              valueSpan.textContent = formatTotalTraffic(newDisplayedTraffic.outBytes);
             }
           });
         }
@@ -1446,6 +1432,7 @@ const apiBase = apiBaseProp ?? '';
           // The name span doesn't have rounded-full class, status dot does
           if (!span.classList.contains('rounded-full')) {
             span.textContent = item.name || 'unknown';
+            span.title = item.name || 'unknown';
             break; // Found the name span, no need to continue
           }
         }
@@ -1453,8 +1440,6 @@ const apiBase = apiBaseProp ?? '';
         if (copyBtn) {
           copyBtn.dataset.systemName = item.name || 'unknown';
         }
-        // Recalculate column width when name changes
-        recalculateColumnWidthFromCurrentData();
       }
     }
     
@@ -1494,14 +1479,6 @@ const apiBase = apiBaseProp ?? '';
     
     // Cell 3: CPU - only update if changed (with threshold)
     const cpuChanged = Math.abs(oldItemNormalized.cpu - newItemNormalized.cpu) >= 0.1;
-    // Helper function for dynamic color updates (same logic as getProgressColor)
-    const getDynamicProgressColor = (value, isOffline = false) => {
-      if (isOffline) return 'bg-red-500';
-      if (value >= 90) return 'bg-red-500';
-      if (value >= 80) return 'bg-orange-500';
-      if (value >= 70) return 'bg-amber-500';
-      return 'bg-emerald-500';
-    };
     
     const cpuStatusChanged = oldItemNormalized.alert !== newItemNormalized.alert;
     if (shouldUpdateAll || cpuChanged || cpuStatusChanged) {
@@ -1518,7 +1495,7 @@ const apiBase = apiBaseProp ?? '';
         if (progressBar) {
           progressBar.style.width = `${pct(value)}%`;
           // Update color based on threshold
-          progressBar.className = `absolute inset-y-0 left-0 h-full rounded-full transition-all duration-500 ease-out ${getDynamicProgressColor(value, isOffline)}`;
+          progressBar.className = `${progressBarClass} ${getProgressColor(value, isOffline)}`;
         }
       }
     }
@@ -1539,7 +1516,7 @@ const apiBase = apiBaseProp ?? '';
         if (progressBar) {
           progressBar.style.width = `${pct(value)}%`;
           // Update color based on threshold
-          progressBar.className = `absolute inset-y-0 left-0 h-full rounded-full transition-all duration-500 ease-out ${getDynamicProgressColor(value, isOffline)}`;
+          progressBar.className = `${progressBarClass} ${getProgressColor(value, isOffline)}`;
         }
       }
     }
@@ -1560,33 +1537,40 @@ const apiBase = apiBaseProp ?? '';
         if (progressBar) {
           progressBar.style.width = `${pct(value)}%`;
           // Update color based on threshold
-          progressBar.className = `absolute inset-y-0 left-0 h-full rounded-full transition-all duration-500 ease-out ${getDynamicProgressColor(value, isOffline)}`;
+          progressBar.className = `${progressBarClass} ${getProgressColor(value, isOffline)}`;
         }
       }
     }
     
-    // Cell 6: Net - only update if changed (with threshold)
-    const netInChanged = Math.abs(oldItemNormalized.net_in_mb_s - newItemNormalized.net_in_mb_s) >= 0.01;
-    const netOutChanged = Math.abs(oldItemNormalized.net_out_mb_s - newItemNormalized.net_out_mb_s) >= 0.01;
-    if (shouldUpdateAll || netInChanged || netOutChanged) {
+    // Cell 6: aggregate traffic. vnStat systems show the current billing
+    // cycle; other systems show the legacy interface-counter total.
+    const aggregateTrafficChanged = oldDisplayedTraffic.totalBytes !== newDisplayedTraffic.totalBytes;
+    const aggregateTrafficMetaChanged =
+      oldItemNormalized.traffic_reset_day !== newItemNormalized.traffic_reset_day ||
+      oldItemNormalized.traffic_cycle_start !== newItemNormalized.traffic_cycle_start ||
+      oldItemNormalized.traffic_cycle_end !== newItemNormalized.traffic_cycle_end ||
+      oldItemNormalized.traffic_limit_bytes !== newItemNormalized.traffic_limit_bytes;
+    if (shouldUpdateAll || aggregateTrafficChanged || aggregateTrafficMetaChanged) {
       const netCell = cells[6];
       if (netCell) {
-        netCell.textContent = `${(newItemNormalized.net_in_mb_s + newItemNormalized.net_out_mb_s).toFixed(2)} MB/s`;
-      }
-    }
-    
-    // Cell 7: OS - only update if changed
-    if (oldItemNormalized.os !== newItemNormalized.os || oldItemNormalized.os_icon !== newItemNormalized.os_icon) {
-      const osCell = cells[7];
-      if (osCell) {
-        if (item.os_icon) {
-          osCell.innerHTML = `<span class="os-icon block leading-none w-5 h-5 sm:w-[26px] sm:h-[26px]" data-icon="${item.os_icon}"></span>`;
-          setTimeout(() => loadOSIcons(), 0);
+        if (oldDisplayedTraffic.hasLimit && newDisplayedTraffic.hasLimit && netCell.querySelector('[data-main-traffic-quota]')) {
+          // Keep the gauge in place so live traffic updates animate with
+          // the other metrics instead of replacing the entire cell.
+          const track = netCell.querySelector('[data-main-traffic-track]');
+          track.setAttribute('aria-valuenow', String(pct(newDisplayedTraffic.percentage)));
+          track.setAttribute('aria-valuetext', `${formatCompactTraffic(newDisplayedTraffic.totalBytes)} / ${formatCompactTraffic(newDisplayedTraffic.limitBytes)}`);
+          const bar = netCell.querySelector('[data-main-traffic-bar]');
+          bar.style.width = `${pct(newDisplayedTraffic.percentage)}%`;
+          bar.className = `${progressBarClass} ${getTrafficProgressColor(newDisplayedTraffic.percentage)}`;
+          netCell.querySelector('[data-traffic-used]').textContent = formatCompactTraffic(newDisplayedTraffic.totalBytes);
+          netCell.querySelector('[data-traffic-allowance]').textContent = formatCompactTraffic(newDisplayedTraffic.limitBytes);
+          netCell.querySelector('[data-main-traffic-amount]').dataset.compact = String(
+            formatCompactTraffic(newDisplayedTraffic.totalBytes).length + formatCompactTraffic(newDisplayedTraffic.limitBytes).length > 16
+          );
         } else {
-          // SECURITY: Escape HTML to prevent XSS
-          const escapedOS = (item.os || '-').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
-          osCell.innerHTML = `<span class="text-xs text-[#404040] dark:text-[#a3a3a3]">${escapedOS}</span>`;
+          netCell.innerHTML = renderMainTraffic(newDisplayedTraffic);
         }
+        netCell.title = getMainTrafficTitle(item, newDisplayedTraffic);
       }
     }
     
@@ -1694,12 +1678,12 @@ const apiBase = apiBaseProp ?? '';
                 <div class="flex items-center text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5]" data-traffic-values="total">
                   <span class="flex items-center gap-0.5" data-detail-total="in">
                     <svg class="w-[10px] h-[10px] sm:w-3 sm:h-3 text-emerald-600 dark:text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12l7 7 7-7"/></svg>
-                    <span>${formatTotalTraffic(item.total_net_in_bytes || 0)}</span>
+                    <span>${formatTotalTraffic(newDisplayedTraffic.inBytes)}</span>
                   </span>
                   <span class="text-[#525252] dark:text-[#737373] mx-1">|</span>
                   <span class="flex items-center gap-0.5" data-detail-total="out">
                     <svg class="w-[10px] h-[10px] sm:w-3 sm:h-3 text-blue-600 dark:text-blue-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
-                    <span>${formatTotalTraffic(item.total_net_out_bytes || 0)}</span>
+                    <span>${formatTotalTraffic(newDisplayedTraffic.outBytes)}</span>
                   </span>
                 </div>`;
               totalPlaceholder.remove();
@@ -1713,13 +1697,33 @@ const apiBase = apiBaseProp ?? '';
               const totalInEl = totalValues.querySelector('[data-detail-total="in"] span:last-child');
               const totalOutEl = totalValues.querySelector('[data-detail-total="out"] span:last-child');
               if (totalInEl) {
-                const newTotalIn = formatTotalTraffic(item.total_net_in_bytes || 0);
+                const newTotalIn = formatTotalTraffic(newDisplayedTraffic.inBytes);
                 if (totalInEl.textContent !== newTotalIn) totalInEl.textContent = newTotalIn;
               }
               if (totalOutEl) {
-                const newTotalOut = formatTotalTraffic(item.total_net_out_bytes || 0);
+                const newTotalOut = formatTotalTraffic(newDisplayedTraffic.outBytes);
                 if (totalOutEl.textContent !== newTotalOut) totalOutEl.textContent = newTotalOut;
               }
+            }
+          }
+
+          if (totalRow && item.traffic_source === 'vnstat') {
+            const sourceBadge = totalRow.querySelector('[data-traffic-source-badge]');
+            if (sourceBadge) sourceBadge.textContent = `vnStat · ${Number(item.traffic_reset_day || 1)}`;
+            totalRow.title = item.traffic_cycle_start && item.traffic_cycle_end
+              ? `${item.traffic_cycle_start} → ${item.traffic_cycle_end}`
+              : '';
+
+            const limitBadge = totalRow.querySelector('[data-traffic-limit-badge]');
+            if (newDisplayedTraffic.hasLimit) {
+              const limitText = `${formatTotalTraffic(newDisplayedTraffic.totalBytes)} / ${formatTotalTraffic(newDisplayedTraffic.limitBytes)} · ${newDisplayedTraffic.percentage.toFixed(1)}%`;
+              if (limitBadge) {
+                limitBadge.textContent = limitText;
+              } else {
+                totalRow.insertAdjacentHTML('beforeend', `<span class="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide tabular-nums text-blue-700 dark:text-blue-400" data-traffic-limit-badge>${limitText}</span>`);
+              }
+            } else if (limitBadge) {
+              limitBadge.remove();
             }
           }
         }
@@ -3520,37 +3524,13 @@ const apiBase = apiBaseProp ?? '';
       // inside one microtask the browser only commits a single layout.
       if (loadingIndicator) loadingIndicator.style.display = 'none';
 
+      showTableHeader();
       body.innerHTML = items.map(item => renderRow(item, tcpingConfigured && item.hide_tcping !== true)).join('');
       currentData = newData;
 
-      // Row-level stagger-in. Each row animates at the ALREADY-settled
-      // column width (locked in STEP 1 of renderDataInternal), so the
-      // fade-up is a pure opacity+translateY transition with zero
-      // horizontal motion — the user sees rows "rise into place",
-      // never "slide sideways".
-      //
-      // Gated by `staggerAnimationPlayed` so a transient empty payload
-      // mid-session does NOT replay the animation: that scenario was
-      // visible to the user as the whole list flickering in from the
-      // top every few seconds.
-      const systemRows = body.querySelectorAll('.system-row');
-      if (!staggerAnimationPlayed) {
-        staggerAnimationPlayed = true;
-        systemRows.forEach((row, index) => {
-          row.style.opacity = '0';
-          row.style.animation = 'data-row-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards';
-          row.style.animationDelay = `${index * 50}ms`;
-          // Clean up after animation
-          setTimeout(() => {
-            row.style.opacity = '';
-            row.style.animation = '';
-            row.style.animationDelay = '';
-          }, 400 + index * 50);
-        });
-      }
+      revealTableOnce();
 
-      await loadOSIcons();
-      await loadFlagIcons();
+      void loadFlagIcons();
       setupCopyButtons(body);
       setupRowClickHandlers(body);
       // Update translations after DOM is ready
@@ -3585,9 +3565,12 @@ const apiBase = apiBaseProp ?? '';
         // New row needs to be added
         rowsToAdd.push({ item, index });
         hasChanges = true;
-      } else if (oldItem && oldItem.hide_tcping !== normalizedItem.hide_tcping) {
-        // Admin flipped "show TCPing": the panel is part of the row markup,
-        // so rebuild the row (remove + add) instead of patching in place.
+      } else if (oldItem && (
+        oldItem.hide_tcping !== normalizedItem.hide_tcping ||
+        oldItem.traffic_source !== normalizedItem.traffic_source
+      )) {
+        // TCPing and vnStat panels are conditional parts of the row markup,
+        // so rebuild the row (remove + add) when either mode changes.
         rowsToRemove.push(item.id);
         rowsToAdd.push({ item, index });
         hasChanges = true;
@@ -3658,15 +3641,6 @@ const apiBase = apiBaseProp ?? '';
         const previousItem = previousData.get(item.id);
         updateRow(row, item, previousItem);
       });
-      // Only load OS icons if OS changed
-      const osChanged = rowsToUpdate.some(({ item }) => {
-        const old = currentData.get(item.id);
-        return old && old.os_icon !== item.os_icon;
-      });
-      if (osChanged) {
-        setTimeout(() => loadOSIcons(), 0);
-      }
-      
       // Load flag icons if location changed
       const locationChanged = rowsToUpdate.some(({ item }) => {
         const old = currentData.get(item.id);
@@ -3679,7 +3653,7 @@ const apiBase = apiBaseProp ?? '';
     
     // Add new rows
     if (rowsToAdd.length > 0) {
-      rowsToAdd.forEach(({ item, index }, addIndex) => {
+      rowsToAdd.forEach(({ item, index }) => {
         // Find insertion point
         let insertBefore = null;
         for (let i = index + 1; i < items.length; i++) {
@@ -3697,10 +3671,7 @@ const apiBase = apiBaseProp ?? '';
         tempDiv.innerHTML = rowHTML;
         const systemRowElement = tempDiv.firstElementChild;
         if (systemRowElement) {
-          // Add entrance animation for new rows
-          systemRowElement.classList.add('animate-scale-in');
-          systemRowElement.style.animationDelay = `${addIndex * 50}ms`;
-          
+          // Updates, filter results and rebuilt rows enter at full opacity.
           // Find the system-row to insert before
           let insertBeforeSystemRow = null;
           if (insertBefore) {
@@ -3712,22 +3683,14 @@ const apiBase = apiBaseProp ?? '';
             body.appendChild(systemRowElement);
           }
           
-          // Clean up animation class after animation completes
-          setTimeout(() => {
-            systemRowElement.classList.remove('animate-scale-in');
-            systemRowElement.style.animationDelay = '';
-          }, 300 + addIndex * 50);
         }
       });
       
-      await loadOSIcons();
-      await loadFlagIcons();
+      void loadFlagIcons();
       setupCopyButtons(body);
       setupRowClickHandlers(body);
       // Update translations after DOM is ready
       setTimeout(() => updateTranslations(), 0);
-      // Recalculate column width when new rows are added (names might be longer)
-      setTimeout(() => recalculateColumnWidthFromCurrentData(), 0);
     }
     
     // Handle reordering if needed - ALWAYS check order, even if no other changes
@@ -3754,13 +3717,6 @@ const apiBase = apiBaseProp ?? '';
     
     // Cache already updated at the beginning of the function
     
-    // Recalculate column width if rows were added or names changed
-    if (rowsToAdd.length > 0 || rowsToUpdate.some(({ item }) => {
-      const old = previousData.get(item.id);
-      return old && old.name !== item.name;
-    })) {
-      setTimeout(() => recalculateColumnWidthFromCurrentData(), 0);
-    }
   };
 
   // renderData is the single, self-serialized render path for the table.
@@ -3847,86 +3803,11 @@ const apiBase = apiBaseProp ?? '';
   // Internal render implementation — assumed to be called serially from
   // renderData() only. Never call this directly.
   async function renderDataInternal(data) {
+    // CSS owns the column widths. Commit the header and data together,
+    // without an intermediate header + loading-placeholder paint.
+    const publicData = data.filter(sys => !(sys && sys.hide_on_home === true));
+    await render(sortSystems(filterSystems(publicData)));
     initialDataRendered = true;
-    // Admin per-system toggle: `hide_on_home` systems stay in the API and
-    // the admin page but never reach the public table.
-    data = data.filter((sys) => !(sys && sys.hide_on_home === true));
-    if (data.length === 0) {
-      showEmpty();
-      // Materialise the header (it ships as display:none during the
-      // pulse phase — see STEP 2 below for the full rationale). Even
-      // though there are no rows to measure, we still want the header
-      // visible so the empty-state message is framed by the proper
-      // column labels. The default 160 px --first-col-width is
-      // appropriate here because no row ever forces it wider.
-      const headerRow = document.getElementById('system-table-header-row');
-      if (headerRow) {
-        headerRow.style.display = 'grid';
-        void headerRow.offsetHeight;
-        headerRow.style.opacity = '1';
-      }
-      return;
-    }
-
-    // STEP 1 — Lock the column width BEFORE any pixels are painted that
-    // depend on it. calculateServerNameColumnWidth measures every name
-    // via an off-screen span, so the resulting --first-col-width is the
-    // final value; it will only grow from here if/when a longer name
-    // registers in a later SSE frame (which is a steady-state update,
-    // not an initial-load concern). applyServerNameColumnWidth ends
-    // with a forced reflow, so by the time this line returns the CSS
-    // variable has been committed to the computed style tree.
-    const preCalculatedWidth = calculateServerNameColumnWidth(data);
-    applyServerNameColumnWidth(preCalculatedWidth);
-
-    // STEP 2 — On the very first render, materialise the header.
-    //
-    // The header row ships with inline `display: none; opacity: 0` so
-    // it is completely absent from layout during the pulse phase —
-    // crucially, the user never sees a header at the wrong (default
-    // 160 px) column width. STEP 1 above has already measured every
-    // server name and committed the correct `--first-col-width` to
-    // the style tree via a forced reflow, so the moment we flip the
-    // header back to `display: grid` its columns are drawn at their
-    // final, data-driven widths. A second forced reflow here makes
-    // sure the display switch is committed BEFORE we touch opacity,
-    // otherwise the browser is free to batch the two style changes
-    // and skip the opacity transition entirely (rendering the header
-    // as an abrupt pop-in). With the reflow in place the sequence
-    // the user sees is: pulse rows breathing → pulse vanishes → the
-    // table header fades in at its correct width → rows slot in
-    // underneath at the same, settled column positions. No part of
-    // the header is ever visible at the wrong width.
-    if (currentData.size === 0) {
-      const headerRow = document.getElementById('system-table-header-row');
-      if (headerRow) {
-        headerRow.style.display = 'grid';
-        void headerRow.offsetHeight;
-        headerRow.style.opacity = '1';
-      }
-
-      // STEP 3 — Wait one paint frame before handing off to render().
-      //
-      // STEP 1 already forced a synchronous reflow, so the width is
-      // authoritative in the style tree. But the *paint* of that new
-      // width (i.e. the pixels the user actually sees) happens on the
-      // next frame. By yielding one rAF here we guarantee that the
-      // fresh column width has been rasterised to the screen before the
-      // row-level `data-row-in` keyframe starts. The net effect for the
-      // user is: nothing moves during the row fade-up — rows simply
-      // materialise at their final, correct column positions.
-      //
-      // Cost: ~16 ms on a 60 Hz display. That is well below the
-      // perception threshold and does not lengthen the feel of the load
-      // (the pulsing placeholder bars in LoadingState keep filling the
-      // space during this frame).
-      await new Promise(resolve => requestAnimationFrame(() => resolve()));
-    }
-
-    // Apply filter first, then sorting
-    const filteredData = filterSystems(data);
-    const sortedData = sortSystems(filteredData);
-    await render(sortedData);
   }
 
   // loadData is kept as the entry point for the cases where the browser
@@ -3950,17 +3831,7 @@ const apiBase = apiBaseProp ?? '';
           </div>
         `;
       }
-      // Materialise the header at the default 160 px --first-col-width
-      // so the error message has the proper column frame around it.
-      // The display:none→grid + reflow + opacity trick mirrors the
-      // happy-path STEP 2, so the failure UI fades in with the same
-      // curve as success.
-      const headerRow = document.getElementById('system-table-header-row');
-      if (headerRow) {
-        headerRow.style.display = 'grid';
-        void headerRow.offsetHeight;
-        headerRow.style.opacity = '1';
-      }
+      showTableHeader();
     }
   }
 
@@ -4266,18 +4137,17 @@ const apiBase = apiBaseProp ?? '';
     bootstrap();
   }
 
-  // Recalculate column width on window resize (with debounce)
+  // Resize expanded charts after the responsive CSS grid settles.
   let resizeTimeout = null;
   window.addEventListener('resize', () => {
     if (resizeTimeout) {
       clearTimeout(resizeTimeout);
     }
     resizeTimeout = setTimeout(() => {
-      recalculateColumnWidthFromCurrentData();
       // Rotating the phone / resizing the browser changes the chart's CSS
-      // box width (inside horizontally-scrollable table). Chart.js does not
+      // box width. Chart.js does not
       // always observe that layout shift reliably on mobile Safari — give it
-      // an explicit resize after column math settles.
+      // an explicit resize after layout settles.
       tcpingCharts.forEach(({ chart }) => {
         try {
           if (chart && typeof chart.resize === 'function') chart.resize();
@@ -4311,18 +4181,221 @@ const apiBase = apiBaseProp ?? '';
 <style is:global>
   /* Column width management for table */
   #monitor-root {
-    --first-col-width: 160px;
+    container: monitor / inline-size;
+    --metric-track-width: 124px;
+    --metric-track-color: #f0f1f2;
+    --metric-label-color: #404040;
+    --metric-caption-color: #62666b;
+    --metric-used-color: #525252;
+    --system-columns: minmax(0, 1.65fr) minmax(0, .95fr) minmax(0, .75fr) repeat(4, minmax(0, 1.4fr));
   }
-  
-  
-  @keyframes data-row-in {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
+
+  .dark #monitor-root {
+    --metric-track-color: #2b2e32;
+    --metric-label-color: #e5e5e5;
+    --metric-caption-color: #c2c6cc;
+    --metric-used-color: #d4d4d4;
+  }
+
+  #monitor-root .system-table-frame,
+  #monitor-root .system-table-content {
+    min-width: 0;
+    width: 100%;
+  }
+
+  #monitor-root #system-table-header-row {
+    border-radius: 11px 11px 0 0;
+    white-space: nowrap;
+  }
+
+  #monitor-root .system-table-grid {
+    display: grid;
+    grid-template-columns: var(--system-columns);
+    align-items: center;
+    column-gap: clamp(8px, 1.5cqi, 20px);
+    padding-inline: clamp(10px, 1.8cqi, 24px);
+  }
+
+  #monitor-root .system-table-grid > div {
+    min-width: 0;
+  }
+
+  #monitor-root .system-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* Reserve the action's width even while hidden: hovering never moves
+     the name, and long names wrap within their own space. */
+  #monitor-root .system-identity .copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 24px;
+    border-radius: 4px;
+  }
+
+  #monitor-root .system-identity .copy-btn:focus-visible {
+    outline: 1px solid currentColor;
+    outline-offset: 2px;
+  }
+
+  @media (hover: none) {
+    #monitor-root .system-identity .copy-btn {
+      opacity: .65;
     }
-    to {
-      opacity: 1;
-      transform: translateY(0);
+  }
+
+  #monitor-root .system-metric-row {
+    min-height: 64px;
+    padding-block: 12px;
+  }
+
+  #monitor-root .metric-gauge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    width: 100%;
+    max-width: var(--metric-track-width);
+    min-width: 0;
+  }
+
+  #monitor-root .metric-label {
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    line-height: 20px;
+    text-align: center;
+    color: var(--metric-label-color);
+  }
+
+  #monitor-root .metric-track {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    min-width: 0;
+    max-width: var(--metric-track-width);
+    height: 22px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--metric-track-color);
+  }
+
+  #monitor-root .metric-fill {
+    border-radius: inherit;
+    opacity: .2;
+    transition: width 400ms ease, background-color 200ms ease;
+  }
+
+  .dark #monitor-root .metric-fill {
+    opacity: .32;
+  }
+
+  #monitor-root .metric-amount {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    column-gap: 3px;
+    width: max-content;
+    max-width: 100%;
+    font-size: 10px;
+    line-height: 20px;
+    white-space: nowrap;
+    color: var(--metric-caption-color);
+  }
+
+  #monitor-root .metric-amount-used {
+    font-weight: 500;
+    color: var(--metric-used-color);
+  }
+
+  #monitor-root .metric-amount[data-compact="true"] {
+    font-size: 9px;
+    column-gap: 2px;
+  }
+
+  #monitor-root .metric-amount-divider {
+    opacity: .7;
+  }
+
+  @container monitor (max-width: 900px) {
+    #monitor-root #system-table-header-row,
+    #monitor-root .metric-label,
+    #monitor-root [data-main-traffic-value] {
+      font-size: 11px;
+    }
+
+    #monitor-root #system-table-header-row > div {
+      gap: 3px;
+    }
+
+    #monitor-root #system-table-header-row svg {
+      flex-shrink: 0;
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  /* On phones, reflow each server into two labelled rows, keeping every
+     value visible instead of creating a horizontally scrolling table. */
+  @container monitor (max-width: 640px) {
+    #monitor-root #system-table-header-row {
+      display: none !important;
+    }
+
+    #monitor-root .system-metric-row {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      column-gap: 12px;
+      row-gap: 32px;
+      padding: 32px 12px 20px;
+    }
+
+    #monitor-root .system-metric-row > div {
+      position: relative;
+    }
+
+    #monitor-root .system-metric-row > div::before {
+      content: attr(data-mobile-label);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0;
+      width: 100%;
+      color: var(--metric-caption-color);
+      font-size: 10px;
+      font-weight: 400;
+      line-height: 14px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    #monitor-root .system-metric-row > :nth-child(1) { grid-column: 1 / span 2; grid-row: 1; }
+    #monitor-root .system-metric-row > :nth-child(2) { grid-column: 3; grid-row: 1; }
+    #monitor-root .system-metric-row > :nth-child(3) { grid-column: 4; grid-row: 1; }
+    #monitor-root .system-metric-row > :nth-child(4) { grid-column: 1; grid-row: 2; }
+    #monitor-root .system-metric-row > :nth-child(5) { grid-column: 2; grid-row: 2; }
+    #monitor-root .system-metric-row > :nth-child(6) { grid-column: 3; grid-row: 2; }
+    #monitor-root .system-metric-row > :nth-child(7) { grid-column: 4; grid-row: 2; }
+
+  }
+
+  /* Give inline usage labels room on phones without tiny type or scroll. */
+  @container monitor (max-width: 480px) {
+    #monitor-root .system-metric-row > :nth-child(4) { grid-column: 1 / span 2; grid-row: 2; }
+    #monitor-root .system-metric-row > :nth-child(5) { grid-column: 3 / span 2; grid-row: 2; }
+    #monitor-root .system-metric-row > :nth-child(6) { grid-column: 1 / span 2; grid-row: 3; }
+    #monitor-root .system-metric-row > :nth-child(7) { grid-column: 3 / span 2; grid-row: 3; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #monitor-root .metric-fill,
+    #monitor-root .system-details {
+      transition: none !important;
     }
   }
 

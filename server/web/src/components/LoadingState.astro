@@ -1,57 +1,8 @@
 ---
-// Layout placeholder shown between "auth passed" and "first SSE frame
-// arrived". Sits inside the table body (#systems-body) so it collapses
-// cleanly once the real rows are rendered.
-//
-// Design rationale (matches the minimalist theme):
-//
-//   * The auth gate (index.astro / admin.astro) already shows a
-//     "Checking access..." spinner while the browser verifies the
-//     privacy config. Once auth passes, the SSE channel typically
-//     delivers the first full snapshot within ~100–300 ms.
-//
-//   * The placeholder below is a **row-preview skeleton**: five
-//     miniature "dot + bar" pairs that echo the real table's left-column
-//     shape (status dot + service name). This gives the user a subtle
-//     hint that rows are about to fill this area, without copying the
-//     full column grid (which would re-introduce the width-jump bug —
-//     the previous skeleton referenced --first-col-width, so when that
-//     variable was recomputed on data arrival the whole skeleton would
-//     snap sideways).
-//
-//   * Width behaviour:
-//       - Desktop (≥1024 px): the wrapper uses flex +
-//         `justify-content: center`, so the preview sits in the middle
-//         of the card and looks balanced and intentional on the wide
-//         layout.
-//       - Mobile / tablet (<1024 px): the table uses `min-w-[1000px]`
-//         with horizontal scroll, so centering inside that 1000 px box
-//         would push the preview to ~500 px — off-screen on a 375 px
-//         phone. A media query switches `justify-content` to
-//         `flex-start` so mobile users see the feedback at the
-//         left-edge of the visible viewport without having to scroll.
-//
-//   * Timing:
-//       - The preview fades in 160 ms after mount. When SSE is fast
-//         (the common case) the whole container is hidden before that
-//         delay elapses, so nothing flashes in.
-//       - Once visible, each dot/bar pair breathes at 0.28 → 0.62
-//         opacity on a 1.8 s cycle, staggered by 180 ms so the motion
-//         reads as a calm wave rather than a synchronous throb.
-//
-//   * When real data lands, SystemTable flips this container to
-//     display:none AFTER it has applied the final column width and
-//     waited one animation frame, so there is never a moment where the
-//     user sees columns moving. Only the row-level `data-row-in`
-//     keyframe plays, entirely at the settled width.
-//
-//   * Accessibility: the wrapper carries `role="status"` (implicit
-//     aria-live: polite) so that when SystemTable's loadData() catch
-//     branch swaps the pulse out for an error message like "Failed to
-//     connect to backend…", assistive tech announces it. The inner
-//     `.loading-pulse` carries `aria-hidden="true"` because the
-//     dot/bar shapes are purely decorative — they should not be
-//     described as "dot, bar, dot, bar, …" to screen-reader users.
+// Quiet, static row placeholders while the first server snapshot loads.
+// Delay their single fade slightly so fast loads do not flash a skeleton.
+// The table header and real rows replace this placeholder in one commit;
+// no per-row wave or repeat entrance animation is used.
 ---
 
 <div id="loading-indicator" role="status">
@@ -80,41 +31,13 @@
 </div>
 
 <style>
-  /* Wrapper — reserves a natural amount of vertical space. The table
-     header (SystemTableHeaderRow) is rendered as `display: none`
-     during the pulse phase so it contributes zero height; the
-     loading block therefore sits flush against the table card's top
-     border and this min-height alone defines the area the user sees
-     pulsing. 200 px is tall enough for the five-row preview + its
-     vertical padding to feel substantial, and slightly shorter than
-     a typical populated table so that when real rows land the table
-     only grows downward (never jumps up), matching the dashboard's
-     "content arrives from above" feel.
-     `justify-content: center` centres the preview inside the card on
-     desktop; `align-items: center` keeps it vertically centred within
-     the reserved height. As a bonus, when loadingIndicator.innerHTML
-     is replaced with an error message (see loadData() catch branch
-     in SystemTable.astro), that message is automatically centred in
-     both axes. */
+  /* Reserve space for loading without an intermediate header reveal.
+     Keep both placeholders and connection errors centered. */
   #loading-indicator {
     min-height: 200px;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  /* On viewports where the table's `min-w-[1000px]` forces a horizontal
-     scrollbar (phones, narrow tablets), the scroll container is wider
-     than the viewport, so centring the preview inside it parks the
-     content at ~500 px — off-screen on a 375 px phone. Falling back to
-     `flex-start` left-aligns the preview so mobile users see the
-     feedback immediately without scrolling sideways. The 1023 px
-     threshold matches Tailwind's `lg:` breakpoint, which is where the
-     1000 px min-width starts to overflow typical handheld viewports. */
-  @media (max-width: 1023px) {
-    #loading-indicator {
-      justify-content: flex-start;
-    }
   }
 
   /* Preview container. max-width caps the bar lengths so they don't
@@ -141,8 +64,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    animation: pulse-breathe 1.8s ease-in-out infinite;
-    will-change: opacity;
+    opacity: 0.42;
   }
 
   .pulse-dot {
@@ -177,19 +99,6 @@
   .pulse-row-c .pulse-bar { width: 46%; }
   .pulse-row-d .pulse-bar { width: 72%; }
   .pulse-row-e .pulse-bar { width: 38%; }
-
-  /* Stagger the breathing so the rows pulse as a gentle wave top→bottom
-     rather than all throbbing in sync, which would look mechanical. */
-  .pulse-row-a { animation-delay:   0ms; }
-  .pulse-row-b { animation-delay: 180ms; }
-  .pulse-row-c { animation-delay: 360ms; }
-  .pulse-row-d { animation-delay: 540ms; }
-  .pulse-row-e { animation-delay: 720ms; }
-
-  @keyframes pulse-breathe {
-    0%, 100% { opacity: 0.28; }
-    50%      { opacity: 0.62; }
-  }
 
   @keyframes pulse-appear {
     from { opacity: 0; }

@@ -103,6 +103,13 @@ type SystemMetric struct {
 	NetOutMBps         float64                     `json:"net_out_mb_s"`
 	TotalNetInBytes    uint64                      `json:"total_net_in_bytes,omitempty"`  // Total received bytes
 	TotalNetOutBytes   uint64                      `json:"total_net_out_bytes,omitempty"` // Total transmitted bytes
+	MonthlyNetInBytes  uint64                      `json:"monthly_net_in_bytes,omitempty"`
+	MonthlyNetOutBytes uint64                      `json:"monthly_net_out_bytes,omitempty"`
+	TrafficSource      string                      `json:"traffic_source,omitempty"`
+	TrafficResetDay    int                         `json:"traffic_reset_day,omitempty"`
+	TrafficCycleStart  string                      `json:"traffic_cycle_start,omitempty"`
+	TrafficCycleEnd    string                      `json:"traffic_cycle_end,omitempty"`
+	TrafficLimitBytes  uint64                      `json:"traffic_limit_bytes,omitempty"` // Admin-configured monthly allowance
 	AgentVersion       string                      `json:"agent_version"`
 	Order              int                         `json:"order"` // Display order for sorting
 	Alert              bool                        `json:"alert"`
@@ -356,6 +363,13 @@ type metricPayload struct {
 	NetOutMBps         float64  `json:"net_out_mb_s"`
 	TotalNetInBytes    uint64   `json:"total_net_in_bytes,omitempty"`  // Total received bytes
 	TotalNetOutBytes   uint64   `json:"total_net_out_bytes,omitempty"` // Total transmitted bytes
+	MonthlyNetInBytes  uint64   `json:"monthly_net_in_bytes,omitempty"`
+	MonthlyNetOutBytes uint64   `json:"monthly_net_out_bytes,omitempty"`
+	TrafficSource      string   `json:"traffic_source,omitempty"`
+	TrafficResetDay    int      `json:"traffic_reset_day,omitempty"`
+	TrafficCycleStart  string   `json:"traffic_cycle_start,omitempty"`
+	TrafficCycleEnd    string   `json:"traffic_cycle_end,omitempty"`
+	TrafficLimitBytes  *uint64  `json:"traffic_limit_bytes,omitempty"` // Admin-only; nil preserves the saved value
 	AgentVersion       string   `json:"agent_version"`
 	Alert              bool     `json:"alert"`
 	Tags               []string `json:"tags,omitempty"`   // User-defined tags
@@ -2025,6 +2039,9 @@ func handleIngestMetric(store *Store, broker *SSEBroker, w http.ResponseWriter, 
 		if payload.HideTCPing != nil {
 			metric.HideTCPing = *payload.HideTCPing
 		}
+		if payload.TrafficLimitBytes != nil {
+			metric.TrafficLimitBytes = *payload.TrafficLimitBytes
+		}
 		// Keep existing order, updatedAt, and secret
 	} else {
 		// Either from client, or new system from admin page
@@ -2032,6 +2049,7 @@ func handleIngestMetric(store *Store, broker *SSEBroker, w http.ResponseWriter, 
 		var cpuModel, memoryInfo, swapInfo, diskInfo, secret string
 		var tags []string
 		var hideOnHome, hideTCPing bool
+		var trafficLimitBytes uint64
 		var tcpingData map[string]TCPingTargetData
 		if existing != nil {
 			cpuModel = existing.CPUModel
@@ -2042,6 +2060,7 @@ func handleIngestMetric(store *Store, broker *SSEBroker, w http.ResponseWriter, 
 			tags = existing.Tags
 			hideOnHome = existing.HideOnHome
 			hideTCPing = existing.HideTCPing
+			trafficLimitBytes = existing.TrafficLimitBytes
 			// Preserve existing tcping data map
 			if existing.TCPingData != nil {
 				tcpingData = make(map[string]TCPingTargetData)
@@ -2074,6 +2093,9 @@ func handleIngestMetric(store *Store, broker *SSEBroker, w http.ResponseWriter, 
 			}
 			if payload.HideTCPing != nil {
 				hideTCPing = *payload.HideTCPing
+			}
+			if payload.TrafficLimitBytes != nil {
+				trafficLimitBytes = *payload.TrafficLimitBytes
 			}
 		}
 		// Use payload values if provided, otherwise keep existing or use empty string
@@ -2111,6 +2133,13 @@ func handleIngestMetric(store *Store, broker *SSEBroker, w http.ResponseWriter, 
 			NetOutMBps:         payload.NetOutMBps,
 			TotalNetInBytes:    payload.TotalNetInBytes,
 			TotalNetOutBytes:   payload.TotalNetOutBytes,
+			MonthlyNetInBytes:  payload.MonthlyNetInBytes,
+			MonthlyNetOutBytes: payload.MonthlyNetOutBytes,
+			TrafficSource:      payload.TrafficSource,
+			TrafficResetDay:    payload.TrafficResetDay,
+			TrafficCycleStart:  payload.TrafficCycleStart,
+			TrafficCycleEnd:    payload.TrafficCycleEnd,
+			TrafficLimitBytes:  trafficLimitBytes,
 			AgentVersion:       payload.AgentVersion,
 			Order:              order,
 			Alert:              payload.Alert,
@@ -2582,6 +2611,12 @@ func handleClientPush(store *Store, registry *ClientRegistry, ipCache *IPCountry
 		NetOutMBps:         payload.NetOutMBps,
 		TotalNetInBytes:    payload.TotalNetInBytes,
 		TotalNetOutBytes:   payload.TotalNetOutBytes,
+		MonthlyNetInBytes:  payload.MonthlyNetInBytes,
+		MonthlyNetOutBytes: payload.MonthlyNetOutBytes,
+		TrafficSource:      payload.TrafficSource,
+		TrafficResetDay:    payload.TrafficResetDay,
+		TrafficCycleStart:  payload.TrafficCycleStart,
+		TrafficCycleEnd:    payload.TrafficCycleEnd,
 		AgentVersion:       payload.AgentVersion,
 		Order:              order,
 		Alert:              false, // actively pushing = online
@@ -3208,6 +3243,12 @@ func pollClient(store *Store, client *ClientInfo, ipCache *IPCountryCache) bool 
 		NetOutMBps:         payload.NetOutMBps,
 		TotalNetInBytes:    payload.TotalNetInBytes,
 		TotalNetOutBytes:   payload.TotalNetOutBytes,
+		MonthlyNetInBytes:  payload.MonthlyNetInBytes,
+		MonthlyNetOutBytes: payload.MonthlyNetOutBytes,
+		TrafficSource:      payload.TrafficSource,
+		TrafficResetDay:    payload.TrafficResetDay,
+		TrafficCycleStart:  payload.TrafficCycleStart,
+		TrafficCycleEnd:    payload.TrafficCycleEnd,
 		AgentVersion:       payload.AgentVersion,
 		Order:              order,
 		Alert:              false, // Client is sending data, so system is online

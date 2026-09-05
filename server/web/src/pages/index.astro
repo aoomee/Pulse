@@ -252,7 +252,7 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
       <div class="px-2 sm:px-4 md:px-6 animate-navbar">
         <NavBar />
       </div>
-      <main class="flex-1 px-2 sm:px-4 md:px-6 pt-2 sm:pt-4 pb-2 sm:pb-4 animate-content">
+      <main class="flex-1 px-2 sm:px-4 md:px-6 pt-2 sm:pt-4 pb-2 sm:pb-4">
         <SystemTable apiBase={apiBase} />
       </main>
       <div class="px-2 sm:px-4 md:px-6">
@@ -262,15 +262,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
     <!--
       Auth-gate overlay. Positioned `fixed inset-0` with an opaque body-
       matching background so it covers the page while auth resolves, and
-      carries a 200 ms opacity transition. When auth passes we don't snap
-      it out with `display: none` — that would leave a visible gap
-      frame between spinner-gone and main-content-faded-in (the `.animate-
-      content` class has a 0.1 s animation-delay). Instead we set
-      `opacity: 0` first, let the fade play, and only THEN apply `hidden`.
-      During those 200 ms the main content's own entrance animations run
-      underneath, so the perceived transition is a clean cross-fade
-      rather than a snap-out / blank-frame / fade-in. The `z-50` ensures
-      the overlay stays above the main content while it fades.
+      carries a 200 ms opacity transition. The page underneath stays in
+      place; only this overlay fades away, avoiding a second whole-page
+      slide on top of the table's one-time data reveal.
     -->
     <div id="login-redirect" class="fixed inset-0 z-50 flex items-center justify-center bg-[#fafafa] dark:bg-[#151515] transition-opacity duration-200 ease-out">
       <div class="text-center animate-page-in">
@@ -298,9 +292,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
     const authCheck = document.getElementById('auth-check');
     const loginRedirect = document.getElementById('login-redirect');
 
-    // Reveal the authenticated page with a smooth cross-fade:
-    //  1. Un-hide #auth-check so its child animations (.animate-navbar
-    //     / .animate-content) start their entrance keyframes.
+    // Reveal the authenticated page with a smooth overlay fade:
+    //  1. Un-hide #auth-check; the main table has no container slide.
     //  2. Drop the overlay out of the hit-testing path (`pointer-events:
     //     none`) so during the 200 ms fade the user can already
     //     interact with the NavBar / content underneath — otherwise

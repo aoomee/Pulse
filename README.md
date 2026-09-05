@@ -37,6 +37,14 @@
 
 ---
 
+## 本 fork 的月流量与界面改造
+
+本分支包含可选 vnStat 月流量、每台机器的月额度、紧凑对齐的进度条及一次性柔和入场动效。
+
+**部署注意：这是源码改造，不是已发布安装包。** 原作者的镜像、Release 和本仓库继承的客户端二进制均不包含这些新功能。部署前需从本分支重新构建服务端和客户端；若使用后台生成的一键安装命令，应先将改动合并到 `aoomee/Pulse` 的 `main`，启用并等待 `Build Client Binaries` 工作流成功更新客户端文件。Linux 安装及自动更新地址已指向本 fork，避免重新安装上游旧版本。
+
+vnStat 只能统计其开始采集后的流量，不能补回安装前的用量；修改重置日也不会重新计算已有历史数据。安装脚本会修改机器的 `/etc/vnstat.conf` 中 `MonthRotate`，该设置也影响同机其他 vnStat 使用者。Windows/macOS 仍使用原统计方式。
+
 ## ✨ v1.3.0 新功能
 
 - 🔐 **共享密钥认证** - 所有客户端使用统一的共享密钥连接服务器，简化部署配置
@@ -243,16 +251,29 @@ Pulse 支持 IPv4/IPv6 双栈，如果您的服务器需要 IPv6 支持，请按
 ### Linux
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
+
+Linux 客户端可选用 vnStat 统计当前月或当前账期流量。管理后台点击机器右侧的 Linux 图标，开启“使用 vnStat 统计月流量”后即可生成对应命令；也可以手动安装：
+
+```bash
+curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
+  --id <ID> --server <SERVER_URL> --secret <SECRET> \
+  --vnstat --traffic-reset-day 8 --vnstat-interface eth0
+```
+
+- `--traffic-reset-day` 可设为 `1`–`28`，按被监控机器的本地时区切换账期。
+- `--vnstat-interface` 可省略，安装脚本会优先自动识别默认路由网卡。
+- vnStat 会由脚本按当前 Linux 发行版安装并作为可选数据源；若安装失败、数据库尚未就绪或读取异常，客户端会自动回退到 Pulse 原有的网卡累计流量。Windows 和 macOS 保持原统计方式。
+- 可在管理后台的“编辑服务”中为每台 vnStat 机器设置月流量额度（GB/TB）。首页会按下载与上传合计显示占比进度条；额度采用运营商常用的十进制单位（1 TB = 1000 GB）。留空或填 0 时仅显示本月已用流量。
 
 ### macOS（Intel / Apple Silicon）
 
 安装脚本会自动检测 CPU 架构，并将服务注册为 `launchd` 守护进程（开机自动启动）：
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.sh | sudo bash -s -- \
+curl -sSL https://raw.githubusercontent.com/aoomee/Pulse/main/client/install.sh | sudo bash -s -- \
   --id <ID> --server <SERVER_URL> --secret <SECRET>
 ```
 

@@ -547,8 +547,8 @@ func (s *Store) Upsert(metric SystemMetric) error {
 // record currently on disk into an agent-supplied metric. Agents compose
 // their record from a snapshot read moments earlier, so without this an
 // admin edit that lands between that read and the agent's write would be
-// silently reverted (name, tags, order, secret, visibility toggles). The
-// per-target "latest tcping" map is merged the same way so a concurrent
+// silently reverted (name, tags, order, secret, visibility toggles, traffic
+// allowance). The per-target "latest tcping" map is merged the same way so a concurrent
 // server-side tcping write is not lost either.
 func mergeAdminOwned(dst *SystemMetric, current *SystemMetric) {
 	dst.Name = current.Name
@@ -557,6 +557,7 @@ func mergeAdminOwned(dst *SystemMetric, current *SystemMetric) {
 	dst.Secret = current.Secret
 	dst.HideOnHome = current.HideOnHome
 	dst.HideTCPing = current.HideTCPing
+	dst.TrafficLimitBytes = current.TrafficLimitBytes
 	for target, cur := range current.TCPingData {
 		if mine, ok := dst.TCPingData[target]; !ok || cur.Timestamp.After(mine.Timestamp) {
 			if dst.TCPingData == nil {
