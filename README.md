@@ -1,162 +1,105 @@
-<p align="center">
-  <img src="assets/logo.svg" width="120" height="120" alt="Pulse Logo">
-</p>
+<p align="center"><img src="assets/logo.svg" width="96" height="96" alt="Pulse Logo"></p>
 
-<h1 align="center">Pulse</h1>
+# Pulse · 月流量与简约面板
 
-<p align="center">
-  <b>轻量级服务器监控系统</b><br>
-  实时监控 CPU、内存、磁盘、网络等指标
-</p>
+基于 [xhhcn/Pulse](https://github.com/xhhcn/Pulse) 的二次开发版本，由 [aoomee/Pulse](https://github.com/aoomee/Pulse) 独立维护。保留上游监控功能，增加可选 vnStat 月流量与精简对齐的前端。
 
-<p align="center">
-  <a href="README_EN.md">English</a> | <a href="README.md">中文</a>
-</p>
+[English](README_EN.md) · [下载测试版](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1) · [容器镜像](https://github.com/aoomee/Pulse/pkgs/container/pulse) · [构建检查](https://github.com/aoomee/Pulse/actions/runs/33977107938) · [MIT](LICENSE)
 
-<p align="center">
-  <a href="https://github.com/xhhcn/Pulse/releases/tag/v1.3.17"><img src="https://img.shields.io/badge/release-v1.3.17-blue?style=flat-square" alt="Release"></a>
-  <a href="https://hub.docker.com/r/xhh1128/pulse"><img src="https://img.shields.io/docker/pulls/xhh1128/pulse?style=flat-square&color=blue" alt="Docker Pulls"></a>
-  <a href="https://hub.docker.com/r/xhh1128/pulse"><img src="https://img.shields.io/docker/image-size/xhh1128/pulse/latest?style=flat-square&color=blue" alt="Docker Size"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
-</p>
+## 当前版本
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go">
-  <img src="https://img.shields.io/badge/Astro-4.0+-FF5D01?style=flat-square&logo=astro&logoColor=white" alt="Astro">
-  <img src="https://img.shields.io/badge/Platform-amd64%20%7C%20arm64-lightgrey?style=flat-square" alt="Platform">
-</p>
+`v1.4.0-vnstat.1` 是已发布的 **Pre-release 测试版**。镜像支持 Linux amd64 / arm64，公开拉取，无需登录 GHCR。
 
----
-
-<p align="center">
-  由 <a href="https://www.dooki.cloud" target="_blank"><b>DokiDoki CDN</b></a> 赞助<br><br>
-  <a href="https://www.dooki.cloud" target="_blank">
-    <img src="assets/doki.png" height="60" alt="DokiDoki CDN">
-  </a>
-</p>
-
----
-
-## 本 fork 的月流量与界面改造
-
-本分支包含可选 vnStat 月流量、每台机器的月额度、紧凑对齐的进度条及一次性柔和入场动效。
-
-**部署本 fork：** 使用 `ghcr.io/aoomee/pulse:1.4.0-vnstat.1`（amd64/arm64）。等待 `Publish Pulse Fork` 工作流成功后，从 [本版 Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1) 下载 `docker-compose.yaml`，执行 `docker compose up -d`，访问 `http://服务器IP:8008`。升级已有部署请先备份数据，保留原来的数据卷或目录映射到 `/app/data`，不要执行 `docker compose down -v`。下文保留的上游镜像和 Release 安装说明不包含本分支改造。
-
-后台安装命令、Linux/macOS 自动更新均固定到本版 Release 的客户端，不会退回上游或未构建的 `main` 二进制。后续升级客户端需使用新版安装脚本。Windows 保留原统计方式，使用同版本客户端。
-
-vnStat 只能统计其开始采集后的流量，不能补回安装前的用量；修改重置日也不会重新计算已有历史数据。安装脚本会修改机器的 `/etc/vnstat.conf` 中 `MonthRotate`，该设置也影响同机其他 vnStat 使用者。Windows/macOS 仍使用原统计方式。
-
-## ✨ v1.3.0 新功能
-
-- 🔐 **共享密钥认证** - 所有客户端使用统一的共享密钥连接服务器，简化部署配置
-- 🏷️ **特殊标签支持** - 新增 `traffic:in/out` 和 `speed:in/out` 标签，实时显示流量统计和网络速率
-- 🎨 **自定义 CSS/JS** - 支持全站自定义样式和脚本，打造个性化监控面板
-
----
-
-## 🚀 服务端安装
-
-### 方式一：独立二进制部署（推荐新手和 VPS 用户）
-
-#### 一键安装
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xhhcn/Pulse/main/install-pulse-server.sh | sudo bash
+```text
+ghcr.io/aoomee/pulse:1.4.0-vnstat.1
 ```
 
-脚本会自动：
-- ✅ 检测系统架构（amd64 / arm64）
-- ✅ 下载对应的二进制到 `/opt/pulse/pulse-server`
-- ✅ 配置 `pulse-server.service` 并设置开机自启
-- ✅ 顺手装上迁移辅助脚本 `/opt/pulse/scripts/{backup,restore,migrate}.sh`，并创建 `pulse-backup` / `pulse-restore` / `pulse-migrate` 三个 CLI 短链（详见 [迁移到另一台服务器](#-迁移到另一台服务器)）
+请使用这个完整版本号，不要使用上游的 `xhh1128/pulse`，也不要替换成 `latest`。本仓库 `main` 包含新版源码；部署使用已发布版本，不需要自行切换开发分支。
 
-#### 更新服务端
+已通过前端构建、Go 测试 / vet、服务端竞态检查、页面布局与动效回归，以及已发布 amd64 容器的启动、健康和页面检查。arm64 镜像已构建；不同 VPS 的安装环境、真实网卡和 vnStat 长期统计仍需实机验证，不代表没有任何缺陷。
 
-**amd64:**
+## 本版改动
+
+- 可选 vnStat 月流量模式，支持每月 1–28 日切换账期；没有可用 vnStat 数据时保留网卡累计统计。
+- 每台机器可配置月额度，进度条内直接显示 `500 GB / 1 TB`，不单独显示百分比。
+- 未启用月流量模式时，只显示累计流量数值，没有进度条或“总”字标记。
+- 服务列表居中对齐、统一进度条，移除首页系统列；窄屏自动重排，不要求横向滚动。
+- 一次性轻柔入场，实时更新不重复展开；修复长名称与复制按钮重叠。
+
+## 快速部署（Docker）
+
+### 1. 确认 Docker 已安装
+
+下面 Linux 新部署命令按 **root 用户**编写，不需要 `sudo`。非 root 用户须使用有权限的账号或按需加 `sudo`。只复制代码块内容，逐条执行，不要复制 `root@…#`、`>` 或“复制”按钮文字。
+
 ```bash
-sudo systemctl stop pulse-server && sudo wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-amd64 -O /opt/pulse/pulse-server && sudo chmod +x /opt/pulse/pulse-server && sudo systemctl start pulse-server
+docker --version
+docker compose version
 ```
 
-**arm64:**
+如果提示 `docker: command not found`，先按你的发行版安装 [Docker Engine](https://docs.docker.com/engine/install/) 和 [Compose 插件](https://docs.docker.com/compose/install/)，再继续。包名随系统版本不同，不要把同一条 apt 命令套用到所有机器。已有旧版 `docker-compose` 的环境可将下文 `docker compose` 替换为 `docker-compose`；新安装优先使用插件。
+
+### 2. 新机器部署
+
+在没有同名容器和旧部署的机器上执行。`mkdir` 报目录已存在时先检查目录，不要覆盖原 Compose 文件。
+
 ```bash
-sudo systemctl stop pulse-server && sudo wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-arm64 -O /opt/pulse/pulse-server && sudo chmod +x /opt/pulse/pulse-server && sudo systemctl start pulse-server
+mkdir pulse
+cd pulse
+curl -fL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/docker-compose.yaml -o docker-compose.yaml
+docker compose pull
+docker compose up -d
+docker compose ps
 ```
 
-#### 卸载服务端
+访问 `http://服务器IP:8008`；管理入口为 `/admin`，首次访问设置管理员密码。若页面无法访问，检查 VPS 安全组 / 防火墙是否允许 TCP 8008。正式对公网使用时建议配置 HTTPS 反向代理。
 
-> 一键安装脚本除了主程序还会落地三件东西：迁移辅助脚本 `/opt/pulse/scripts/{backup,restore,migrate}.sh`、`/usr/local/bin/pulse-{backup,restore,migrate}` 三个 CLI 短链，以及 `/opt/pulse/data/`（数据库 `metrics.db` 在这里）。卸载时按需选择以下两种之一：
-
-**仅删除程序（保留 `/opt/pulse/data/` 下的数据库，方便回滚或日后重装）:**
 ```bash
-sudo systemctl stop pulse-server && sudo systemctl disable pulse-server && \
-sudo rm -f /usr/local/bin/pulse-migrate /usr/local/bin/pulse-backup /usr/local/bin/pulse-restore && \
-sudo rm -f /opt/pulse/pulse-server /etc/systemd/system/pulse-server.service && \
-sudo rm -rf /opt/pulse/scripts && \
-sudo systemctl daemon-reload
+docker compose logs --tail=100
+curl -fsS http://127.0.0.1:8008/healthz
 ```
 
-**完全删除（包括数据库 `metrics.db`，不可逆）:**
-```bash
-sudo systemctl stop pulse-server && sudo systemctl disable pulse-server && \
-sudo rm -f /usr/local/bin/pulse-migrate /usr/local/bin/pulse-backup /usr/local/bin/pulse-restore && \
-sudo rm -f /etc/systemd/system/pulse-server.service && \
-sudo rm -rf /opt/pulse && \
-sudo systemctl daemon-reload
-```
+### 3. 已有部署升级
 
-#### 手动安装
-
-**Linux (amd64)**
-```bash
-# 下载
-wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-amd64
-chmod +x pulse-server-standalone-linux-amd64
-
-# 运行
-./pulse-server-standalone-linux-amd64
-```
-
-**Linux (arm64)**
-```bash
-# 下载
-wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-arm64
-chmod +x pulse-server-standalone-linux-arm64
-
-# 运行
-./pulse-server-standalone-linux-arm64
-```
-
-访问 `http://YOUR_IP:8008` 查看监控面板
-
----
-
-### 方式二：Docker 部署（推荐生产环境）
-
-[![Docker](https://img.shields.io/badge/Docker-xhh1128/pulse-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com/r/xhh1128/pulse)
-
-#### Docker Compose
+先在管理后台下载备份。在**原部署目录**中，只修改现有 Compose 的 `image` 为上面的版本，保留原端口、容器名、Compose 项目名和映射到 `/app/data` 的数据卷 / 目录，再执行：
 
 ```bash
-mkdir pulse && cd pulse
-curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/docker-compose.yaml -o docker-compose.yaml
+docker compose pull
 docker compose up -d
 ```
 
-> **IPv6 支持**：如果您的服务器需要 IPv6 支持，请参考下方的 [Docker IPv6 配置](#docker-ipv6-配置) 章节。
+**不要执行 `docker compose down -v`，不要为了升级换一个空数据卷。** 默认 Compose 使用命名卷 `pulse-data`，实际卷名带项目名前缀，换目录可能连接到另一份空数据。回滚时先备份当前数据，再切回旧镜像；不要在运行时直接覆盖数据库。
 
-#### Docker Run
+## 月流量怎么启用
+
+1. 在 `/admin` 添加机器，点击对应机器右侧的 Linux 图标。
+2. 开启“使用 vnStat 统计月流量”，填写重置日（1–28），按需指定网卡。
+3. 在被监控机器执行生成的命令。若已是 root 且没有 sudo，去掉命令中的 `sudo`。
+4. 在“编辑服务”中设置月额度（GB / TB）；例如填 `1 TB`，累计到 `500 GB` 时填充一半。
+
+月流量按 **下载 + 上传合计**，额度用十进制单位（1 TB = 1000 GB）。留空或填 0 时不显示额度进度条。实时网速仍取自网卡，不受 vnStat 模式影响。
+
+vnStat 只统计其开始采集后的流量，不能补回安装前的用量。账期按被监控机器本地时区切换，数据落库可能稍有延迟。修改重置日不会重新计算历史数据；安装脚本会修改 `/etc/vnstat.conf` 的 `MonthRotate`，也会影响同机其他 vnStat 使用者。Windows / macOS 保留原统计方式。
+
+后台命令和客户端自动更新固定到本版 Release，避免回退到上游旧程序；未来升级客户端需使用新版安装脚本。
+
+## 独立二进制部署（不使用 Docker）
+
+适用于 Linux amd64 / arm64、systemd 环境，需要 `curl`、`wget`。新安装以 root 执行：
 
 ```bash
-docker run -d \
-  --name pulse-monitor \
-  -p 8008:8008 \
-  -v $(pwd)/pulse-data:/app/data \
-  --restart unless-stopped \
-  xhh1128/pulse:latest
+curl -fL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-server.sh -o install-pulse-server.sh
+bash install-pulse-server.sh
 ```
 
-访问 `http://YOUR_IP:8008` 查看监控面板
+安装器默认使用本 fork 的 `v1.4.0-vnstat.1`，程序位于 `/opt/pulse/pulse-server`，数据位于 `/opt/pulse/data`，端口 8008。不要与同端口的 Docker 部署同时运行。已有安装升级前先备份，并停止 `pulse-server` 服务后再运行安装器。
+
+```bash
+systemctl status pulse-server
+journalctl -u pulse-server -n 100
+```
+
+手动下载请到 [Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1) 选择 `pulse-server-standalone-linux-amd64` 或 `pulse-server-standalone-linux-arm64`。Release 同时提供客户端、安装脚本和 `SHA256SUMS`。
 
 ---
 
@@ -209,7 +152,7 @@ Pulse 支持 IPv4/IPv6 双栈，如果您的服务器需要 IPv6 支持，请按
    ```yaml
    services:
      pulse:
-       image: xhh1128/pulse:latest
+       image: ghcr.io/aoomee/pulse:1.4.0-vnstat.1
        container_name: pulse-monitor
        ports:
          - 8008:8008
@@ -252,17 +195,16 @@ Pulse 支持 IPv4/IPv6 双栈，如果您的服务器需要 IPv6 支持，请按
 
 ### Linux
 
+以下以 root 执行，请先把 `YOUR_ID`、`SERVER_URL`、`YOUR_SECRET` 替换为后台提供的值。优先使用后台为该机器生成的命令，避免密钥或 ID 填错。
+
 ```bash
-curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
-  --id <ID> --server <SERVER_URL> --secret <SECRET>
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 Linux 客户端可选用 vnStat 统计当前月或当前账期流量。管理后台点击机器右侧的 Linux 图标，开启“使用 vnStat 统计月流量”后即可生成对应命令；也可以手动安装：
 
 ```bash
-curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
-  --id <ID> --server <SERVER_URL> --secret <SECRET> \
-  --vnstat --traffic-reset-day 8 --vnstat-interface eth0
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET' --vnstat --traffic-reset-day 8
 ```
 
 - `--traffic-reset-day` 可设为 `1`–`28`，按被监控机器的本地时区切换账期。
@@ -275,8 +217,7 @@ curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/inst
 安装脚本会自动检测 CPU 架构，并将服务注册为 `launchd` 守护进程（开机自动启动）：
 
 ```bash
-curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
-  --id <ID> --server <SERVER_URL> --secret <SECRET>
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 > **注意**：macOS 需要 `sudo` 权限以便将 `.plist` 写入 `/Library/LaunchDaemons/`。
@@ -303,7 +244,10 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/com.pulse.client.plist
 ### Windows (管理员 PowerShell)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "& { $env:AgentId='<ID>'; $env:ServerBase='<SERVER_URL>'; $env:Secret='<SECRET>'; irm https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.ps1 | iex }"
+$env:AgentId = 'YOUR_ID'
+$env:ServerBase = 'SERVER_URL'
+$env:Secret = 'YOUR_SECRET'
+irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.ps1 | iex
 ```
 
 | 参数 | 说明 |
@@ -373,7 +317,7 @@ Stop-ScheduledTask -TaskName 'PulseClient' -ErrorAction SilentlyContinue; Unregi
 
 ## 🎨 二次开发 / 自定义主题
 
-Pulse 的前端是独立的 Astro 项目，**完全和后端解耦**。如果你想 fork 出一个自己的主题（换皮、加组件、改交互），只需要动 `server/web/` 下面的代码，Go 后端不需要改一行。
+Pulse 的前端是独立的 Astro 项目。纯样式、布局和已有数据的展示可在 `server/web/` 中修改；增加新统计能力则可能需要同步改客户端和 Go API。本 fork 的 vnStat 月流量就同时涉及采集、上报和前端展示，并非仅靠主题计算。
 
 ### 主题代码在哪里
 
@@ -399,15 +343,20 @@ server/web/
 ### 本地开发工作流
 
 ```bash
-git clone https://github.com/<你的用户名>/Pulse.git
+git clone https://github.com/aoomee/Pulse.git
 cd Pulse/server
+
+# 首次启动前生成 Go embed 所需的前端文件（需要 Go 1.22+、Node.js 和 npm）
+cd web
+npm ci
+npm run build
+cd ..
 
 # 终端 1：跑后端（监听 :8080）
 go run .
 
-# 终端 2：跑前端（监听 :4321，自动热重载）
-cd web
-npm install
+# 终端 2：从仓库根目录进入前端（监听 :4321，自动热重载）
+cd server/web
 npm run dev
 ```
 
@@ -419,7 +368,7 @@ PULSE_API_BASE=https://your-pulse-instance.example.com npm run dev
 
 ### 出包 & 部署
 
-两种路径都已经过端到端验证。任选其一：
+可以从源码构建独立程序或 Docker 镜像。交叉编译产物需在对应平台运行：
 
 **A. 独立二进制（先打前端，再编 Go）：**
 
@@ -449,7 +398,7 @@ docker run --rm -p 8008:8008 -v "$(pwd)/data:/app/data" my-pulse:dev
 
 ### 不需要碰的部分
 
-* `server/main.go` & `server/store.go`：后端 API、鉴权、bbolt 存储，已经过几轮安全/性能审计，对主题开发完全透明。
+* `server/main.go` & `server/store.go`：后端 API、鉴权、bbolt 存储；只调整主题外观时一般无需修改。
 * `client/`：跑在被监控机器上的 Go agent 代码。
 * `scripts/`、`install-pulse-server.sh`、`docker/`：部署 / 运维相关。
 
@@ -461,7 +410,7 @@ docker run --rm -p 8008:8008 -v "$(pwd)/data:/app/data" my-pulse:dev
 
 ## 🚚 迁移到另一台服务器
 
-Pulse 服务端的全部状态（系统列表、共享密钥、TCPing 历史、管理员密码、面板配置……）都只保存在 **一个 bbolt 文件** 里。仓库提供的 `scripts/migrate.sh` 把整个流程打包成 **一条命令**：在新服务器上跑一次，就能从旧服务器把所有数据搬过来，**旧服务器全程不停机、零数据丢失**。
+Pulse 服务端的全部状态（系统列表、共享密钥、TCPing 历史、管理员密码、面板配置……）都只保存在 **一个 bbolt 文件** 里。仓库提供的 `scripts/migrate.sh` 把整个流程打包成 **一条命令**：在新服务器上跑一次，就能从旧服务器把所有数据搬过来，旧服务器在备份期间无需停机；迁移的是快照时刻的数据，之后的新写入不会自动同步。
 
 > 客户端 `AGENT_ID` / `SECRET` 保持不变，只有 `SERVER_BASE`（服务端地址）可能需要改。  
 > 如果旧端用的是域名 + 反代，只需把 DNS 切到新 IP 即可，客户端完全不用动。
@@ -475,13 +424,13 @@ Pulse 服务端的全部状态（系统列表、共享密钥、TCPing 历史、�
 #    A. 独立二进制（systemd） — 推荐，资源占用最小
 #       安装器会顺便把 backup/restore/migrate 脚本装到 /opt/pulse/scripts/
 #       并创建 pulse-migrate / pulse-backup / pulse-restore 三个命令。
-curl -fsSL https://raw.githubusercontent.com/xhhcn/Pulse/main/install-pulse-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-server.sh | sudo bash
 
 #    B. Docker Compose
 # mkdir pulse && cd pulse && \
-# curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/docker-compose.yaml -o docker-compose.yaml && \
+# curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/docker-compose.yaml -o docker-compose.yaml && \
 # docker compose up -d && \
-# curl -fsSL https://raw.githubusercontent.com/xhhcn/Pulse/main/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
+# curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/v1.4.0-vnstat.1/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
 #       migrate.sh 会自动从仓库拉取它所依赖的 backup.sh / restore.sh，一个文件够用
 
 # 2) 一条命令迁移 —— 交互式输入旧服务器的管理员密码

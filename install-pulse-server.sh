@@ -14,8 +14,8 @@ NC='\033[0m' # No Color
 # Configuration
 INSTALL_DIR="/opt/pulse"
 SERVICE_NAME="pulse-server"
-GITHUB_REPO="xhhcn/Pulse"
-VERSION="latest"  # Can be changed to specific version like "v1.2.3"
+GITHUB_REPO="aoomee/Pulse"
+VERSION="v1.4.0-vnstat.1"  # Prereleases are not resolved by GitHub's /latest URL.
 
 # Print colored message
 print_message() {
@@ -181,4 +181,3 @@ else
     print_message "$YELLOW" "   Check logs: sudo journalctl -u $SERVICE_NAME -n 50"
     exit 1
 fi
-

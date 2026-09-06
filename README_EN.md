@@ -1,162 +1,105 @@
-<p align="center">
-  <img src="assets/logo.svg" width="120" height="120" alt="Pulse Logo">
-</p>
+<p align="center"><img src="assets/logo.svg" width="96" height="96" alt="Pulse Logo"></p>
 
-<h1 align="center">Pulse</h1>
+# Pulse · Monthly traffic and a compact dashboard
 
-<p align="center">
-  <b>Lightweight Server Monitoring System</b><br>
-  Real-time monitoring of CPU, memory, disk, network and other metrics
-</p>
+An independently maintained fork of [xhhcn/Pulse](https://github.com/xhhcn/Pulse) at [aoomee/Pulse](https://github.com/aoomee/Pulse), adding optional vnStat billing-cycle traffic and a refined frontend.
 
-<p align="center">
-  <a href="README_EN.md">English</a> | <a href="README.md">中文</a>
-</p>
+[中文](README.md) · [Download prerelease](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1) · [Container image](https://github.com/aoomee/Pulse/pkgs/container/pulse) · [Build checks](https://github.com/aoomee/Pulse/actions/runs/33977107938) · [MIT](LICENSE)
 
-<p align="center">
-  <a href="https://github.com/xhhcn/Pulse/releases/tag/v1.3.17"><img src="https://img.shields.io/badge/release-v1.3.17-blue?style=flat-square" alt="Release"></a>
-  <a href="https://hub.docker.com/r/xhh1128/pulse"><img src="https://img.shields.io/docker/pulls/xhh1128/pulse?style=flat-square&color=blue" alt="Docker Pulls"></a>
-  <a href="https://hub.docker.com/r/xhh1128/pulse"><img src="https://img.shields.io/docker/image-size/xhh1128/pulse/latest?style=flat-square&color=blue" alt="Docker Size"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License"></a>
-</p>
+## Current version
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go">
-  <img src="https://img.shields.io/badge/Astro-4.0+-FF5D01?style=flat-square&logo=astro&logoColor=white" alt="Astro">
-  <img src="https://img.shields.io/badge/Platform-amd64%20%7C%20arm64-lightgrey?style=flat-square" alt="Platform">
-</p>
+`v1.4.0-vnstat.1` is a published **prerelease for deployment testing**. The public image supports Linux amd64 / arm64 and does not require a GHCR login.
 
----
-
-<p align="center">
-  Sponsored by <a href="https://www.dooki.cloud" target="_blank"><b>DokiDoki CDN</b></a><br><br>
-  <a href="https://www.dooki.cloud" target="_blank">
-    <img src="assets/doki.png" height="60" alt="DokiDoki CDN">
-  </a>
-</p>
-
----
-
-## Monthly traffic and dashboard changes in this fork
-
-This branch adds optional vnStat billing-cycle traffic, per-server allowances, aligned compact meters, and a gentle one-time entrance animation.
-
-**Deploy this fork:** use `ghcr.io/aoomee/pulse:1.4.0-vnstat.1` (amd64/arm64). After `Publish Pulse Fork` succeeds, download `docker-compose.yaml` from [this release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1), run `docker compose up -d`, and visit port 8008. Back up existing data before upgrading and preserve the original volume/bind mount at `/app/data`; do not run `docker compose down -v`. The upstream image/release instructions retained below do not include this fork's changes.
-
-Generated installation commands and Linux/macOS automatic updates are pinned to this release's clients, never upstream or inherited main-branch binaries. Use a newer installer for future client upgrades. Windows retains its original accounting with the matching client build.
-
-vnStat only records traffic after collection starts; it cannot recover earlier usage. Changing the reset day does not recalculate existing history. The installer modifies `MonthRotate` in `/etc/vnstat.conf`, affecting other vnStat users on that machine. Windows/macOS retain the original accounting method.
-
-## ✨ What's New in v1.3.0
-
-- 🔐 **Shared Secret Authentication** - All clients use a unified shared secret to connect to the server, simplifying deployment
-- 🏷️ **Special Tag Support** - New `traffic:in/out` and `speed:in/out` tags for real-time traffic statistics and network speed display
-- 🎨 **Custom CSS/JS** - Support for site-wide custom styles and scripts to create a personalized monitoring dashboard
-
----
-
-## 🚀 Server Installation
-
-### Method 1: Standalone Binary Deployment (Recommended for VPS)
-
-#### One-line Installation
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/xhhcn/Pulse/main/install-pulse-server.sh | sudo bash
+```text
+ghcr.io/aoomee/pulse:1.4.0-vnstat.1
 ```
 
-The script will automatically:
-- ✅ Detect system architecture (amd64 / arm64)
-- ✅ Download the appropriate binary to `/opt/pulse/pulse-server`
-- ✅ Configure `pulse-server.service` and enable auto-start
-- ✅ Drop the migration helpers `/opt/pulse/scripts/{backup,restore,migrate}.sh` and create the `pulse-backup` / `pulse-restore` / `pulse-migrate` CLI shortcuts (see [Migrate to Another Server](#-migrate-to-another-server))
+Use the exact tag, not upstream `xhh1128/pulse` or `latest`. The default `main` branch contains the new source; deployments should use the release.
 
-#### Update Server
+Verified: frontend build, Go tests/vet, server race tests, browser layout/motion regressions, and published amd64 container startup, health and page checks. The arm64 image is built; real VPS installation and long-running vnStat accounting across different interfaces still require validation. This is not a claim of zero defects.
 
-**amd64:**
+## Changes
+
+- Optional vnStat billing-cycle traffic with reset days 1–28; unavailable monthly data falls back to interface totals.
+- Per-server allowances with `500 GB / 1 TB` inside the meter, without a separate percentage.
+- Legacy accounting displays only a total value, with no meter or total badge.
+- Centered columns, consistent meters, no OS column on the homepage, and responsive reflow instead of horizontal scrolling.
+- A gentle one-time entrance without replay on live updates; long names no longer overlap the copy button.
+
+## Quick start with Docker
+
+### 1. Check prerequisites
+
+Linux quick-start commands below assume **root** and do not require `sudo`. Non-root users need appropriate permissions or `sudo`. Copy code only, one command at a time, without shell prompts or the Copy button label.
+
 ```bash
-sudo systemctl stop pulse-server && sudo wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-amd64 -O /opt/pulse/pulse-server && sudo chmod +x /opt/pulse/pulse-server && sudo systemctl start pulse-server
+docker --version
+docker compose version
 ```
 
-**arm64:**
+If Docker is missing, install [Docker Engine](https://docs.docker.com/engine/install/) and the [Compose plugin](https://docs.docker.com/compose/install/) for your distribution first. Package names vary by release. Existing legacy installations may substitute `docker-compose` for `docker compose`; prefer the plugin for new installations.
+
+### 2. Fresh deployment
+
+Use a new directory on a host without a conflicting container. If the directory already exists, inspect it instead of overwriting an existing Compose file.
+
 ```bash
-sudo systemctl stop pulse-server && sudo wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-arm64 -O /opt/pulse/pulse-server && sudo chmod +x /opt/pulse/pulse-server && sudo systemctl start pulse-server
+mkdir pulse
+cd pulse
+curl -fL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/docker-compose.yaml -o docker-compose.yaml
+docker compose pull
+docker compose up -d
+docker compose ps
 ```
 
-#### Uninstall Server
+Open `http://SERVER_IP:8008`. Visit `/admin` to set the initial administrator password. If unreachable, check the VPS security group/firewall for TCP 8008. Use an HTTPS reverse proxy for public access.
 
-> Besides the binary itself, the one-line installer also drops the migration helpers at `/opt/pulse/scripts/{backup,restore,migrate}.sh`, three CLI shortcuts at `/usr/local/bin/pulse-{backup,restore,migrate}`, and `/opt/pulse/data/` (which holds the bbolt database `metrics.db`). Pick whichever uninstall flavour matches your intent:
-
-**Remove program only (keep `/opt/pulse/data/` so you can roll back or reinstall later):**
 ```bash
-sudo systemctl stop pulse-server && sudo systemctl disable pulse-server && \
-sudo rm -f /usr/local/bin/pulse-migrate /usr/local/bin/pulse-backup /usr/local/bin/pulse-restore && \
-sudo rm -f /opt/pulse/pulse-server /etc/systemd/system/pulse-server.service && \
-sudo rm -rf /opt/pulse/scripts && \
-sudo systemctl daemon-reload
+docker compose logs --tail=100
+curl -fsS http://127.0.0.1:8008/healthz
 ```
 
-**Complete removal (including the `metrics.db` database — irreversible):**
-```bash
-sudo systemctl stop pulse-server && sudo systemctl disable pulse-server && \
-sudo rm -f /usr/local/bin/pulse-migrate /usr/local/bin/pulse-backup /usr/local/bin/pulse-restore && \
-sudo rm -f /etc/systemd/system/pulse-server.service && \
-sudo rm -rf /opt/pulse && \
-sudo systemctl daemon-reload
-```
+### 3. Upgrade an existing deployment
 
-#### Manual Installation
-
-**Linux (amd64)**
-```bash
-# Download
-wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-amd64
-chmod +x pulse-server-standalone-linux-amd64
-
-# Run
-./pulse-server-standalone-linux-amd64
-```
-
-**Linux (arm64)**
-```bash
-# Download
-wget https://github.com/xhhcn/Pulse/releases/latest/download/pulse-server-standalone-linux-arm64
-chmod +x pulse-server-standalone-linux-arm64
-
-# Run
-./pulse-server-standalone-linux-arm64
-```
-
-Access `http://YOUR_IP:8008` to view the monitoring dashboard
-
----
-
-### Method 2: Docker Deployment (Recommended for Production)
-
-[![Docker](https://img.shields.io/badge/Docker-xhh1128/pulse-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com/r/xhh1128/pulse)
-
-#### Docker Compose
+Download a backup from the admin panel first. In the **original deployment directory**, change only `image` to the version above, retaining ports, container/project names and the original volume or bind mount at `/app/data`. Then run:
 
 ```bash
-mkdir pulse && cd pulse
-curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/docker-compose.yaml -o docker-compose.yaml
+docker compose pull
 docker compose up -d
 ```
 
-> **IPv6 Support**: If your server requires IPv6 support, please refer to the [Docker IPv6 Configuration](#docker-ipv6-configuration) section below.
+**Do not run `docker compose down -v` or replace your existing data volume with an empty one.** The default named volume `pulse-data` receives a Compose project prefix; changing directories can connect to a different empty volume. Back up current data before rolling back an image, and never overwrite a running database.
 
-#### Docker Run
+## Enable monthly traffic
+
+1. Add a machine in `/admin` and click its Linux icon.
+2. Enable vnStat monthly traffic, choose a reset day (1–28), and optionally select an interface.
+3. Run the generated command on the monitored machine. Remove `sudo` if already root and sudo is unavailable.
+4. Edit the service to set its monthly GB/TB allowance; `500 GB` out of `1 TB` fills half the meter.
+
+Usage is **RX + TX**, using decimal quota units (1 TB = 1000 GB). Empty/zero allowances show usage without a quota meter. Live network speed still comes from interface counters.
+
+vnStat records traffic only after collection starts; it cannot recover earlier usage. Cycles follow the monitored machine’s local timezone and database writes may introduce a delay. Changing the reset day does not recalculate historical data. The installer changes `MonthRotate` in `/etc/vnstat.conf`, also affecting other vnStat users on that host. Windows/macOS retain the original accounting.
+
+Generated installation commands and automatic updates are pinned to this release. Use a newer installer for future client upgrades.
+
+## Standalone server without Docker
+
+For Linux amd64/arm64 with systemd, `curl` and `wget`. Run as root for a fresh installation:
 
 ```bash
-docker run -d \
-  --name pulse-monitor \
-  -p 8008:8008 \
-  -v $(pwd)/pulse-data:/app/data \
-  --restart unless-stopped \
-  xhh1128/pulse:latest
+curl -fL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-server.sh -o install-pulse-server.sh
+bash install-pulse-server.sh
 ```
 
-Access `http://YOUR_IP:8008` to view the monitoring dashboard
+The installer defaults to this fork’s `v1.4.0-vnstat.1`, with the binary at `/opt/pulse/pulse-server`, data at `/opt/pulse/data`, and port 8008. Do not run it alongside a Docker deployment on the same port. For an existing installation, back up first and stop `pulse-server` before running the installer.
+
+```bash
+systemctl status pulse-server
+journalctl -u pulse-server -n 100
+```
+
+For manual installation, use the matching `pulse-server-standalone-linux-amd64` or `pulse-server-standalone-linux-arm64` asset from the [Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1), which also contains clients, installers and `SHA256SUMS`.
 
 ---
 
@@ -209,7 +152,7 @@ Pulse supports IPv4/IPv6 dual-stack. If your server requires IPv6 support, pleas
    ```yaml
    services:
      pulse:
-       image: xhh1128/pulse:latest
+       image: ghcr.io/aoomee/pulse:1.4.0-vnstat.1
        container_name: pulse-monitor
        ports:
          - 8008:8008
@@ -252,17 +195,16 @@ Pulse supports IPv4/IPv6 dual-stack. If your server requires IPv6 support, pleas
 
 ### Linux
 
+Run as root after replacing `YOUR_ID`, `SERVER_URL` and `YOUR_SECRET` with the values from your admin panel. Prefer the per-machine generated command to avoid mismatched credentials.
+
 ```bash
-curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
-  --id <ID> --server <SERVER_URL> --secret <SECRET>
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 Linux clients can optionally use vnStat for current-month or billing-cycle traffic. Click the Linux icon beside a machine in the admin panel and enable “Monthly traffic with vnStat” to generate the command, or install it manually:
 
 ```bash
-curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
-  --id <ID> --server <SERVER_URL> --secret <SECRET> \
-  --vnstat --traffic-reset-day 8 --vnstat-interface eth0
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET' --vnstat --traffic-reset-day 8
 ```
 
 - `--traffic-reset-day` accepts `1`–`28` and rotates in the monitored machine's local timezone.
@@ -275,8 +217,7 @@ curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/inst
 The install script auto-detects CPU architecture and registers the service as a `launchd` daemon (auto-starts on boot):
 
 ```bash
-curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- \
-  --id <ID> --server <SERVER_URL> --secret <SECRET>
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 > **Note**: macOS requires `sudo` to write `.plist` files into `/Library/LaunchDaemons/`.
@@ -303,7 +244,10 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/com.pulse.client.plist
 ### Windows (Administrator PowerShell)
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "& { $env:AgentId='<ID>'; $env:ServerBase='<SERVER_URL>'; $env:Secret='<SECRET>'; irm https://raw.githubusercontent.com/xhhcn/Pulse/main/client/install.ps1 | iex }"
+$env:AgentId = 'YOUR_ID'
+$env:ServerBase = 'SERVER_URL'
+$env:Secret = 'YOUR_SECRET'
+irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.ps1 | iex
 ```
 
 | Parameter | Description |
@@ -373,7 +317,7 @@ Stop-ScheduledTask -TaskName 'PulseClient' -ErrorAction SilentlyContinue; Unregi
 
 ## 🎨 Theming & Customisation
 
-Pulse's frontend is a self-contained Astro project, **fully decoupled from the backend**. If you want to fork it into a new theme — re-skin, add components, tweak interactions — all the work happens under `server/web/`; you don't need to touch a single line of Go.
+Pulse's frontend is an Astro project. Styling, layout and presentation of existing data can be changed under `server/web/`. New accounting capabilities may also require agent and Go API changes: this fork's vnStat feature includes collection and reporting, not just theme-side calculation.
 
 ### Where the theme code lives
 
@@ -399,15 +343,20 @@ server/web/
 ### Local dev workflow
 
 ```bash
-git clone https://github.com/<your-username>/Pulse.git
+git clone https://github.com/aoomee/Pulse.git
 cd Pulse/server
+
+# Generate files required by Go embed first (Go 1.22+, Node.js and npm required)
+cd web
+npm ci
+npm run build
+cd ..
 
 # Terminal 1: run the backend on :8080
 go run .
 
-# Terminal 2: run the frontend on :4321 with hot reload
-cd web
-npm install
+# Terminal 2: from the repository root, run the frontend on :4321
+cd server/web
 npm run dev
 ```
 
@@ -419,7 +368,7 @@ PULSE_API_BASE=https://your-pulse-instance.example.com npm run dev
 
 ### Build & deploy
 
-Both paths have been end-to-end verified. Pick one:
+Build a standalone binary or Docker image from source. Run cross-compiled binaries on the corresponding target platform:
 
 **A. Standalone binary (build the frontend first, then `go build`):**
 
@@ -449,7 +398,7 @@ The multi-stage `Dockerfile` runs `npm ci && npm run build` for you, hands the d
 
 ### What you don't need to touch
 
-* `server/main.go` & `server/store.go`: backend API, auth, bbolt storage. Already audited; transparent to theme work.
+* `server/main.go` & `server/store.go`: backend API, auth and bbolt storage; usually unchanged for purely visual theme work.
 * `client/`: agent code running on monitored machines.
 * `scripts/`, `install-pulse-server.sh`, `docker/`: deployment & ops.
 
@@ -461,7 +410,7 @@ Pure re-skins are best kept on your own fork. If you build something with genera
 
 ## 🚚 Migrating to Another Server
 
-All of Pulse's server state (registered systems, shared secrets, TCPing history, admin password, dashboard config, …) lives in **one bbolt file**. The repo ships `scripts/migrate.sh`, which wraps the entire migration into **a single command** — run it on the new server and it pulls everything across from the old one. **The old server stays fully online** the whole time, with zero data loss.
+All of Pulse's server state (registered systems, shared secrets, TCPing history, admin password, dashboard config, …) lives in **one bbolt file**. The repo ships `scripts/migrate.sh`, which wraps the entire migration into **a single command** — run it on the new server and it pulls everything across from the old one. The old server can remain online during backup; the snapshot reflects one point in time, and subsequent writes are not automatically synchronized.
 
 > Every client keeps its `AGENT_ID` / `SECRET`; the only thing that might need updating is `SERVER_BASE` (the URL).  
 > If the old host sits behind a domain + reverse proxy, flip DNS to the new IP and clients need no change at all.
@@ -475,13 +424,13 @@ All of Pulse's server state (registered systems, shared secrets, TCPing history,
 #    A. Standalone binary (systemd) — recommended, lowest overhead
 #       The installer also drops backup/restore/migrate into /opt/pulse/scripts/
 #       and creates the pulse-migrate / pulse-backup / pulse-restore commands.
-curl -fsSL https://raw.githubusercontent.com/xhhcn/Pulse/main/install-pulse-server.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-server.sh | sudo bash
 
 #    B. Docker Compose
 # mkdir pulse && cd pulse && \
-# curl -sSL https://raw.githubusercontent.com/xhhcn/Pulse/main/docker-compose.yaml -o docker-compose.yaml && \
+# curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/docker-compose.yaml -o docker-compose.yaml && \
 # docker compose up -d && \
-# curl -fsSL https://raw.githubusercontent.com/xhhcn/Pulse/main/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
+# curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/v1.4.0-vnstat.1/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
 #       migrate.sh will auto-fetch its backup.sh/restore.sh siblings from the repo — one file is enough.
 
 # 2) One command — prompts for the OLD admin password (never shown on screen)
