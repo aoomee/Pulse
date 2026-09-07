@@ -78,9 +78,10 @@ const fixture = [
       await page.waitForFunction(() => document.querySelectorAll('.system-metric-row').length === 3);
       await page.waitForFunction(() => !document.querySelector('#auth-check').classList.contains('hidden'));
       await page.waitForFunction(() => window.__firstPushSent === true);
+      await page.waitForFunction(() => document.documentElement.dataset.pulseReady === 'true');
       await page.waitForTimeout(350);
       const initialFades = await page.evaluate(() => window.__fadeCalls.length);
-      assert.equal(initialFades, scenario.reduced || scenario.authDelay ? 0 : 1, `${scenario.name}: unexpected initial fade`);
+      assert.equal(initialFades, 0, `${scenario.name}: list must not animate separately from the shared reveal`);
       if (scenario.name === 'normal') {
         const monthlyRow = page.locator('.system-metric-row[data-system-id="ui-3"]');
         await monthlyRow.click();

@@ -407,6 +407,8 @@ const apiBase = apiBaseProp ?? '';
   function revealTableOnce() {
     if (tableEntrancePlayed) return;
     tableEntrancePlayed = true;
+    // The homepage waits for data/theme and owns a single uniform reveal.
+    if (window.__pulseMarkDataReady) { window.__pulseMarkDataReady(); return; }
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     // If auth is still covering the page, its overlay supplies the reveal.
     if (!body?.getClientRects().length) return;
@@ -1270,6 +1272,7 @@ const apiBase = apiBaseProp ?? '';
   }
 
   const showEmpty = () => {
+    window.__pulseMarkDataReady?.();
     if (loadingIndicator) loadingIndicator.style.display = 'none';
     showTableHeader();
     currentData.clear();

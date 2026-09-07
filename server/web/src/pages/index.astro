@@ -9,7 +9,7 @@ import Footer from '../components/Footer.astro';
 const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
 ---
 
-<html lang="en" class="dark overflow-x-hidden">
+<html lang="en" class="dark overflow-x-hidden" data-pulse-home>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -33,6 +33,33 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
     <link rel="apple-touch-icon" href="/favicon.svg" />
     <link rel="mask-icon" href="/favicon.svg" color="#24292f" />
     <title>Pulse Monitor</title>
+    <style is:global>
+      /* One reveal owns the homepage. No nested slide/stagger entrances. */
+      html[data-pulse-home] .animate-navbar,
+      html[data-pulse-home] #navbar-logo-container,
+      html[data-pulse-home] #navbar-text,
+      html[data-pulse-home] #navbar-icons-container {
+        animation: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+      }
+      html[data-pulse-home] #login-redirect { transition: opacity 160ms ease-out; }
+      .boot-hint { display: flex; flex-direction: column; align-items: center; gap: 14px; opacity: 0; animation: boot-hint-in 160ms 300ms ease-out forwards; }
+      .boot-mark { width: 36px; height: 3px; border-radius: 3px; background: #a3a3a3; animation: boot-breathe 1.6s ease-in-out infinite; }
+      .boot-hint p { margin: 0; font-size: 12px; color: #737373; }
+      @keyframes boot-hint-in { to { opacity: 1; } }
+      @keyframes boot-breathe { 50% { opacity: .35; } }
+      @media (prefers-reduced-motion: reduce) {
+        html[data-pulse-home] #login-redirect { transition: none; }
+        .boot-hint { animation: none; opacity: 1; }
+        .boot-mark { animation: none; }
+      }
+    </style>
+    <script is:inline>
+      window.__pulseFirstData = new Promise(resolve => { window.__pulseMarkDataReady = resolve; });
+      window.__pulseNavReady = new Promise(resolve => { window.__pulseMarkNavReady = resolve; });
+      window.__pulseThemeReady = Promise.resolve();
+    </script>
     <!-- View Transitions API styling for smooth theme switching -->
     <style>
       /* View Transitions API support for smooth cross-fade */
@@ -129,55 +156,13 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
         }
         applyThemeToBody();
         
-        // Preload navbar config early (non-blocking)
-        const apiBase = window.location.origin;
-        fetch(`${apiBase}/api/navbar/config`)
-          .then(res => res.ok ? res.json() : null)
-          .then(config => {
-            if (config) {
-              // Store config for NavBar component to use
-              window.__navbarConfig = config;
-              // Update page title with navbar text
-              if (config.text) {
-                document.title = config.text;
-              }
-              // Update favicon with custom logo
-              if (config.logo && /^(https?:\/\/|\/|data:)/i.test(String(config.logo).trim())) {
-                const favicon = document.querySelector('link[rel=\"icon\"]');
-                if (favicon) {
-                  favicon.href = config.logo;
-                  // Auto-detect image type based on URL extension
-                  const ext = config.logo.toLowerCase().split('.').pop().split('?')[0];
-                  if (ext === 'svg') {
-                    favicon.type = 'image/svg+xml';
-                  } else if (ext === 'png') {
-                    favicon.type = 'image/png';
-                  } else if (ext === 'jpg' || ext === 'jpeg') {
-                    favicon.type = 'image/jpeg';
-                  } else if (ext === 'ico') {
-                    favicon.type = 'image/x-icon';
-                  } else {
-                    // Remove type attribute to let browser auto-detect
-                    favicon.removeAttribute('type');
-                  }
-                }
-              }
-              // Apply glassmorphism effect if enabled
-              if (config.show_glass) {
-                document.documentElement.classList.add('glass-enabled');
-              }
-              // Dispatch event when config is ready
-              window.dispatchEvent(new CustomEvent('navbarconfigready', { detail: config }));
-            }
-          })
-          .catch(() => {
-            // Silently fail, NavBar will handle defaults
-          });
+        // The shared loader below supplies the same snapshot to theme and navbar.
       })();
     </script>
     <!-- Load custom CSS and JS from backend (all users see it) -->
     <script is:inline>
       (function() {
+        var pendingThemeScripts = [];
         // Use synchronous XMLHttpRequest to load config BEFORE page renders
         // This ensures external scripts load early enough for DOMContentLoaded
         try {
@@ -187,6 +172,12 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
           
           if (xhr.status === 200) {
             var config = JSON.parse(xhr.responseText);
+            window.__navbarConfig = config;
+            if (config.text) document.title = config.text;
+            if (config.logo && /^(https?:\/\/|\/|data:)/i.test(String(config.logo).trim())) {
+              var favicon = document.querySelector('link[rel="icon"]');
+              if (favicon) { favicon.href = config.logo; favicon.removeAttribute('type'); }
+            }
             
             // Apply glassmorphism effect immediately (before render)
             if (config.show_glass) {
@@ -224,6 +215,10 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
                     // Force synchronous loading for external scripts
                     script.async = false;
                     script.defer = false;
+                    pendingThemeScripts.push(new Promise(function(resolve) {
+                      script.addEventListener('load', resolve, { once: true });
+                      script.addEventListener('error', resolve, { once: true });
+                    }));
                   } else if (scriptData.content.trim()) {
                     // Inline script
                     script.textContent = scriptData.content;
@@ -244,6 +239,16 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
         } catch (err) {
           console.warn('Failed to load custom styles:', err);
         }
+        window.__pulseThemeReady = Promise.all(pendingThemeScripts).then(function() {
+          // Theme scripts may add an external stylesheet of their own.
+          return Promise.all(Array.from(document.querySelectorAll('link[rel="stylesheet"]')).map(function(link) {
+            if (link.sheet) return Promise.resolve();
+            return new Promise(function(resolve) {
+              link.addEventListener('load', resolve, { once: true });
+              link.addEventListener('error', resolve, { once: true });
+            });
+          }));
+        });
       })();
     </script>
   </head>
@@ -267,9 +272,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
       slide on top of the table's one-time data reveal.
     -->
     <div id="login-redirect" class="fixed inset-0 z-50 flex items-center justify-center bg-[#fafafa] dark:bg-[#151515] transition-opacity duration-200 ease-out">
-      <div class="text-center animate-page-in">
-        <div class="w-8 h-8 border-[3px] border-[#d4d4d4] dark:border-[#404040] border-t-[#525252] dark:border-t-[#d4d4d4] rounded-full animate-spin-smooth mx-auto mb-4"></div>
-        <p class="text-sm text-[#525252] dark:text-[#a3a3a3]">Checking access...</p>
+      <div class="boot-hint" role="status" aria-live="polite">
+        <span class="boot-mark" aria-hidden="true"></span>
+        <p id="boot-message">Loading…</p>
       </div>
     </div>
   </body>
@@ -307,11 +312,30 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
     //     the overlay leaves the layout tree.
     // The overlay is `position: fixed` so step 3's opacity fade does
     // not cause a layout shift below the auth-check content.
-    function revealAuthContent() {
+    let revealed = false;
+    const bounded = (promise, ms) => new Promise(resolve => {
+      const timer = setTimeout(resolve, ms);
+      Promise.resolve(promise).catch(() => {}).finally(() => { clearTimeout(timer); resolve(); });
+    });
+    const bootMessage = document.getElementById('boot-message');
+    if (bootMessage) bootMessage.textContent = document.documentElement.lang === 'zh' ? '正在连接监控…' : 'Connecting…';
+    async function revealAuthContent() {
+      if (revealed) return;
+      revealed = true;
+      authCheck.style.visibility = 'hidden';
       authCheck.classList.remove('hidden');
+      await Promise.all([
+        bounded(window.__pulseFirstData, 5000),
+        bounded(window.__pulseThemeReady, 4000),
+        bounded(window.__pulseNavReady, 1500)
+      ]);
+      // Commit translations, theme DOM changes and layout before uncovering.
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      authCheck.style.visibility = '';
+      document.documentElement.dataset.pulseReady = 'true';
       loginRedirect.style.pointerEvents = 'none';
       loginRedirect.style.opacity = '0';
-      setTimeout(() => loginRedirect.classList.add('hidden'), 220);
+      setTimeout(() => loginRedirect.classList.add('hidden'), 180);
     }
 
     // Get token from URL parameter

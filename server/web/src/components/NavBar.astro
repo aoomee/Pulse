@@ -432,6 +432,7 @@ const { isAdmin = false } = Astro.props;
       }
       
       // Show all elements with smooth staggered fade-in animation
+      window.__pulseMarkNavReady?.();
       // Use requestAnimationFrame to ensure smooth animation trigger
       requestAnimationFrame(() => {
         if (logoContainer) {
