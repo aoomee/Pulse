@@ -933,10 +933,10 @@ const apiBase = apiBaseProp ?? '';
       <!-- Expandable details section -->
       <div class="system-details hidden border-t border-[#404040]/50 dark:border-[#404040]/50 border-[#e5e5e5] bg-[#1a1a1a] dark:bg-[#1a1a1a] bg-[#f8f8f8] overflow-hidden" data-details-id="${safeId}" style="width: 100%;">
         <div class="details-content px-3 sm:px-4 md:px-6 py-2 sm:py-3">
-          <div class="flex flex-col gap-1.5 sm:gap-2 items-start">
+          <div class="details-summary">
             <!-- Tags (first row) -->
             ${item.tags && Array.isArray(item.tags) && item.tags.length > 0 ? `
-            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full">
+            <div class="details-tags flex flex-wrap items-center gap-1.5 sm:gap-2 w-full">
               ${item.tags.map(tag => {
                 // SECURITY: Escape tag to prevent XSS
                 const safeTag = escapeHtml(tag);
@@ -1051,28 +1051,28 @@ const apiBase = apiBaseProp ?? '';
             </div>
             ` : ''}
             <!-- CPU Info -->
-            <div class="flex flex-wrap items-baseline gap-1.5 sm:gap-2" style="min-height: 16px; line-height: 16px;">
+            <div class="details-cpu details-stat">
               <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="cpuInformation">CPU:</div>
               <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] leading-normal" data-detail="cpu_model">${escapeHtml(item.cpu_model || '-')}</div>
             </div>
             <!-- Memory Info -->
-            <div class="flex flex-wrap items-baseline gap-1.5 sm:gap-2">
+            <div class="details-resource details-stat">
               <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="memoryInfo">Memory:</div>
               <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] leading-normal" data-detail="memory_info">${escapeHtml(item.memory_info || '-')}</div>
             </div>
             <!-- Swap Info -->
-            <div class="flex flex-wrap items-baseline gap-1.5 sm:gap-2">
+            <div class="details-resource details-stat">
               <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="swapPartition">Swap:</div>
               <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] leading-normal" data-detail="swap_info">${escapeHtml(item.swap_info || '-')}</div>
             </div>
             <!-- Disk Info -->
-            <div class="flex flex-wrap items-baseline gap-1.5 sm:gap-2">
+            <div class="details-resource details-stat">
               <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="diskInformation">Disk:</div>
               <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5] leading-normal" data-detail="disk_info">${escapeHtml(item.disk_info || '-')}</div>
             </div>
             ${showTrafficInfo ? `
             <!-- Real-time Traffic -->
-            <div class="flex items-center gap-1.5 sm:gap-2" data-traffic-row="speed">
+            <div class="details-network details-stat" data-traffic-row="speed">
               <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="realtimeTraffic">Traffic:</div>
               ${(!item.cpu_model && !item.memory_info && !item.disk_info) ? `
               <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5]" data-traffic-placeholder="speed">-</div>
@@ -1091,7 +1091,7 @@ const apiBase = apiBaseProp ?? '';
               `}
             </div>
             <!-- Aggregate traffic: vnStat billing cycle or legacy interface total -->
-            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2" data-traffic-row="total" title="${hasVnStatMonthly ? safeCycleTitle : ''}">
+            <div class="details-network details-stat" data-traffic-row="total" title="${hasVnStatMonthly ? safeCycleTitle : ''}">
               <div class="text-[10px] sm:text-xs font-medium text-[#404040] dark:text-[#a3a3a3] shrink-0" data-translate-detail="${hasVnStatMonthly ? 'monthlyTraffic' : 'totalTraffic'}">${hasVnStatMonthly ? 'Monthly:' : 'Total:'}</div>
               ${(!item.cpu_model && !item.memory_info && !item.disk_info) ? `
               <div class="text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5]" data-traffic-placeholder="total">-</div>
@@ -4218,6 +4218,43 @@ const apiBase = apiBaseProp ?? '';
 </script>
 
 <style is:global>
+  /* A centered summary, with hardware and network grouped into quiet rows. */
+  #monitor-root .details-content { padding: 24px 20px; }
+  #monitor-root .details-summary {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 20px 28px;
+    width: 100%;
+    max-width: 880px;
+    margin-inline: auto;
+    text-align: center;
+  }
+  #monitor-root .details-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    min-width: 0;
+  }
+  #monitor-root .details-stat > [data-translate-detail] { color: var(--metric-caption-color); font-weight: 400; font-size: 11px; }
+  #monitor-root .details-stat > [data-detail],
+  #monitor-root .details-stat > [data-traffic-values] { font-size: 12px; line-height: 1.6; font-weight: 500; font-variant-numeric: tabular-nums; }
+  #monitor-root .details-stat > [data-detail] { max-width: 100%; overflow-wrap: anywhere; }
+  #monitor-root .details-tags { grid-column: 1 / -1; justify-content: center; }
+  #monitor-root .details-cpu { grid-column: 1 / -1; padding-bottom: 18px; border-bottom: 1px solid rgb(128 128 128 / 12%); }
+  #monitor-root .details-resource { grid-column: span 2; }
+  #monitor-root .details-network { grid-column: span 3; padding-top: 18px; border-top: 1px solid rgb(128 128 128 / 12%); }
+  #monitor-root .details-network > [data-traffic-values] { flex-wrap: wrap; justify-content: center; max-width: 100%; }
+  #monitor-root .details-network > [data-traffic-source-badge],
+  #monitor-root .details-network > [data-traffic-limit-badge] { max-width: 100%; overflow-wrap: anywhere; font-size: 10px; letter-spacing: 0; font-weight: 500; }
+  @container monitor (max-width: 560px) {
+    #monitor-root .details-content { padding: 20px 16px; }
+    #monitor-root .details-summary { gap: 14px; }
+    #monitor-root .details-resource { grid-column: 1 / -1; flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 8px; }
+    #monitor-root .details-network { grid-column: 1 / -1; padding-top: 14px; }
+  }
+
   /* Column width management for table */
   #monitor-root {
     container: monitor / inline-size;
@@ -4319,7 +4356,7 @@ const apiBase = apiBaseProp ?? '';
     min-width: 0;
     max-width: var(--metric-track-width);
     height: 22px;
-    border-radius: 6px;
+    border-radius: 9px;
     overflow: hidden;
     background: var(--metric-track-color);
   }

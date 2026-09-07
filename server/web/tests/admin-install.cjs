@@ -43,10 +43,11 @@ const fixture = [{ id: 'test-host', name: 'VMRACK', secret: "test-only-'quoted'"
     const assertAligned = async () => {
       const delta = await page.evaluate(() => {
         const icon = document.querySelector('.edit-btn').getBoundingClientRect();
-        const name = document.querySelector('.system-name').getBoundingClientRect();
+        const name = document.querySelector('.admin-host-identity').getBoundingClientRect();
         return Math.abs(icon.y + icon.height / 2 - name.y - name.height / 2);
       });
-      assert(delta < 1, `New host name is not centered with edit icon: ${delta}px`);
+      assert(delta < 1, `Host identity is not centered with edit icon at ${page.viewportSize().width}px: ${delta}px`);
+      assert.equal(await edit.evaluate(el => getComputedStyle(el).borderRadius), '50%', 'Edit button must be circular');
     };
     await assertAligned();
     await page.evaluate(data => window.__push(data), [{ ...fixture[0], os: 'Debian', virtualization_type: 'KVM' }]);
@@ -54,6 +55,43 @@ const fixture = [{ id: 'test-host', name: 'VMRACK', secret: "test-only-'quoted'"
     await page.evaluate(data => window.__push(data), fixture);
     await page.locator('.system-secondary-info').waitFor({ state: 'hidden' });
     await assertAligned();
+    const populated = [{ ...fixture[0], name: 'DMIT PRO', os: 'Debian', virtualization_type: 'VPS', ipv4: '192.0.2.7', ipv6: '2001:db8:1234:5678:abcd:ef01:2345:6789',
+      cpu_model: 'AMD EPYC-Rome Processor', traffic_source: 'vnstat', monthly_net_in_bytes: 2.39 * 1024 ** 3, monthly_net_out_bytes: 2.32 * 1024 ** 3 }];
+    await page.evaluate(data => window.__push(data), populated);
+    await page.locator('.copy-ip-btn').first().waitFor();
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    for (const width of [1100, 800, 640, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      await assertAligned();
+      const geometry = await page.locator('.draggable-item').first().evaluate(row => {
+        const bounds = row.getBoundingClientRect();
+        const buttons = [...row.querySelectorAll('.copy-ip-btn')].filter(el => el.getClientRects().length);
+        return { fits: row.scrollWidth <= row.clientWidth + 1,
+          copies: buttons.map(button => {
+            const b = button.getBoundingClientRect();
+            const label = button.parentElement.querySelector('.system-ipv4, .system-ipv6').getBoundingClientRect();
+            const icon = button.querySelector('.copy-icon').getBoundingClientRect();
+            return { radius: getComputedStyle(button).borderRadius, square: b.width === b.height,
+              aligned: Math.abs(b.top + b.height / 2 - label.top - label.height / 2) < 1,
+              iconCentered: Math.abs(icon.top + icon.height / 2 - b.top - b.height / 2) < 1 && Math.abs(icon.left + icon.width / 2 - b.left - b.width / 2) < 1,
+              fits: b.right <= bounds.right && label.right + 5 <= b.left };
+          }) };
+      });
+      assert(geometry.fits, `${width}: admin row overflows`);
+      assert(geometry.copies.every(b => b.radius === '50%' && b.square && b.aligned && b.iconCentered && b.fits), `${width}: copy controls not aligned: ${JSON.stringify(geometry)}`);
+      if (process.env.PULSE_SCREENSHOT_DIR) await page.locator('.draggable-item').first().screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/admin-row-${width}.png` });
+    }
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.locator('.copy-ip-btn[data-ip="192.0.2.7"]').click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), '192.0.2.7');
+    await page.locator('.copy-ip-btn[data-ip^="2001:"]').click();
+    assert.equal(await page.evaluate(() => navigator.clipboard.readText()), populated[0].ipv6, 'Truncated IPv6 was copied instead of full address');
+    await page.locator('#theme-btn').click();
+    await page.waitForTimeout(400);
+    if (process.env.PULSE_SCREENSHOT_DIR) await page.locator('.draggable-item').first().screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/admin-row-dark.png` });
+    await page.reload();
+    await edit.waitFor({ state: 'visible' });
+    console.log('PASS centered circular IP copy controls, full IPv6 copying, and responsive admin row');
     await page.locator('.copy-linux-cmd-btn').first().click();
     const command = page.locator('#linux-install-command');
     await command.waitFor({ state: 'visible' });

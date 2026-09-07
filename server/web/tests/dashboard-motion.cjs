@@ -9,6 +9,7 @@ const fixture = [
   { id: 'ui-1', name: 'Alpha', time: '18d', cpu: 1.1, memory: 36.6, disk: 30.2, total_net_in_bytes: 70e9 },
   { id: 'ui-2', name: 'Beta', time: '256d', cpu: .9, memory: 25, disk: 20.5 },
   { id: 'ui-3', name: 'Host-C(IPV6)', time: '50d', cpu: 2.7, memory: 12.7, disk: 4.4,
+    cpu_model: 'AMD EPYC-Rome Processor @ 2.60GHz 2 Virtual Core', memory_info: '398.96 MiB / 1.92 GiB', swap_info: '0 B / 0 B', disk_info: '2.87 GiB / 49.13 GiB', net_in_mb_s: .0128, net_out_mb_s: .0132,
     traffic_source: 'vnstat', traffic_reset_day: 18, traffic_cycle_start: '2026-08-18', traffic_cycle_end: '2026-09-18', monthly_net_in_bytes: 430e9, monthly_net_out_bytes: 70e9, traffic_limit_bytes: 1e12 }
 ];
 
@@ -83,6 +84,9 @@ const fixture = [
       const initialFades = await page.evaluate(() => window.__fadeCalls.length);
       assert.equal(initialFades, 0, `${scenario.name}: list must not animate separately from the shared reveal`);
       if (scenario.name === 'normal') {
+        const radii = await page.locator('.metric-track, .metric-fill').evaluateAll(nodes => nodes.map(el => getComputedStyle(el).borderRadius));
+        assert(radii.length > 0 && radii.every(radius => radius === '9px'), 'All homepage meters must share the softer radius');
+        if (process.env.PULSE_SCREENSHOT_DIR) await page.locator('#monitor-root').screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/rounded-meters.png` });
         const monthlyRow = page.locator('.system-metric-row[data-system-id="ui-3"]');
         await monthlyRow.click();
         const badge = page.locator('[data-traffic-source-badge]');
@@ -97,8 +101,34 @@ const fixture = [
           window.dispatchEvent(new CustomEvent('languagechange', { detail: { language: 'zh' } }));
         });
         assert.equal(await badge.textContent(), '月流量 · 18日重置');
-        await monthlyRow.click();
         const identity = page.locator('.system-metric-row[data-system-id="ui-3"] .system-identity');
+        await page.waitForTimeout(400);
+        for (const width of [1100, 375, 320]) {
+          await page.setViewportSize({ width, height: 1000 });
+          const details = page.locator('[data-details-id="ui-3"]');
+          const geometry = await details.evaluate(el => {
+            const summary = el.querySelector('.details-summary').getBoundingClientRect();
+            const bounds = el.getBoundingClientRect();
+            return {
+              centered: Math.abs(summary.left + summary.right - bounds.left - bounds.right) < 2,
+              fits: [...el.querySelectorAll('.details-stat, [data-detail], [data-traffic-values], [data-traffic-limit-badge]')].every(node => {
+                const r = node.getBoundingClientRect();
+                return r.left >= bounds.left && r.right <= bounds.right && node.scrollWidth <= node.clientWidth + 1;
+              })
+            };
+          });
+          assert(geometry.centered, `${width}: details summary not centered`);
+          assert(geometry.fits, `${width}: expanded details overflow`);
+          if (process.env.PULSE_SCREENSHOT_DIR) {
+            await details.screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/details-${width}.png` });
+          }
+        }
+        await page.setViewportSize({ width: 1100, height: 1000 });
+        await page.locator('#theme-btn').click();
+        await page.waitForTimeout(400);
+        if (process.env.PULSE_SCREENSHOT_DIR) await page.locator('[data-details-id="ui-3"]').screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/details-dark.png` });
+        await page.locator('#theme-btn').click();
+        await monthlyRow.click();
         const namePosition = () => identity.evaluate(cell => {
           const name = cell.querySelector('.system-name').getBoundingClientRect();
           const bounds = cell.getBoundingClientRect();

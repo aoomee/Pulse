@@ -1102,7 +1102,7 @@ const customCodePlaceholder = [
     const system = pendingLinuxInstallSystem;
     if (!system || !linuxInstallCommand) return;
     const privilege = document.getElementById('linux-install-user')?.value === 'sudo' ? 'sudo ' : '';
-    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
+    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.6/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
     if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
     if (linuxVnstatToggle?.checked) {
       const iface = String(document.getElementById('linux-vnstat-interface')?.value || '').trim();
@@ -1457,7 +1457,7 @@ const customCodePlaceholder = [
               return '';
             })()}
             
-            <div class="flex items-center gap-3 min-h-[28px] relative" style="z-index: 1;">
+            <div class="admin-host-row flex items-center gap-3 min-h-[28px] relative" style="z-index: 1;">
             <!-- Edit Button -->
             <button 
               class="edit-btn shrink-0 rounded-lg p-2 text-[#525252] dark:text-[#737373] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0] hover:text-blue-400 dark:hover:text-blue-400 hover:text-blue-600 self-center"
@@ -1485,10 +1485,10 @@ const customCodePlaceholder = [
             </button>
 
             <!-- System Info -->
-            <div class="flex-1 min-w-0 flex items-center gap-3">
+            <div class="admin-host-info flex-1 min-w-0 flex items-center gap-3">
               <!-- Left: Name -->
-              <div class="flex flex-col gap-1 flex-shrink-0" style="flex-shrink: 1; min-width: 0; max-width: 250px;">
-                <span class="system-name text-sm font-semibold text-[#262626] dark:text-[#f5f5f5]" style="word-break: break-word; overflow-wrap: break-word; display: block;">${escapeHtml(system.name || '')}</span>
+              <div class="admin-host-identity flex flex-col gap-1 flex-shrink-0">
+                <span class="system-name text-sm font-semibold text-[#262626] dark:text-[#f5f5f5]" title="${escapeHtmlAttr(system.name || '')}">${escapeHtml(system.name || '')}</span>
                 <!-- Other Info (Virtualization Type, OS) -->
                 <div class="system-secondary-info flex flex-wrap gap-2 text-xs text-[#404040] dark:text-[#737373] min-h-[16px]" data-empty="${!system.virtualization_type && !system.os}">
                   ${system.virtualization_type ? `<span class="system-virtualization-type">${escapeHtml(system.virtualization_type)}</span>` : ''}
@@ -1637,6 +1637,7 @@ const customCodePlaceholder = [
       const nameSpan = itemElement.querySelector('.system-name');
       if (nameSpan) {
         nameSpan.textContent = item.name;
+        nameSpan.title = item.name || '';
       }
     }
     
@@ -2474,6 +2475,9 @@ const customCodePlaceholder = [
 
     // Setup copy IP buttons
     container.querySelectorAll('.copy-ip-btn').forEach(btn => {
+      const address = btn.parentElement?.querySelector('.system-ipv4, .system-ipv6');
+      if (address) address.title = btn.dataset.ip || '';
+      btn.setAttribute('aria-label', address?.classList.contains('system-ipv6') ? 'Copy IPv6 address' : 'Copy IPv4 address');
       // Remove existing listeners by cloning
       if (btn.dataset.wired === '1') return; // already has its listener
       btn.dataset.wired = '1';
@@ -2573,7 +2577,7 @@ const customCodePlaceholder = [
         if (secret) {
           command += `; \`$env:Secret=${powershellQuote(secret)}`;
         }
-        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/install.ps1 | iex }"`;
+        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.6/install.ps1 | iex }"`;
         
         const windowsIcon = newBtn.querySelector('.windows-icon');
         const checkIcon = newBtn.querySelector('.check-icon');
@@ -4752,6 +4756,27 @@ const customCodePlaceholder = [
 </script>
 
 <style is:global>
+  .admin-host-info { column-gap: 24px; }
+  .admin-host-identity { flex-shrink: 1; min-width: 96px; max-width: 250px; }
+  .admin-host-identity .system-name { display: block; min-height: 28px; line-height: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .admin-host-identity .system-secondary-info { align-items: center; min-height: 28px; line-height: 20px; }
+  .admin-host-row > .edit-btn { display: flex; align-items: center; justify-content: center; align-self: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; background: #f4f4f5; color: #737373; }
+  .admin-host-row .ip-info-container { min-width: 0; flex-shrink: 1; max-width: 280px; gap: 4px; }
+  .admin-host-row .ip-info-container > div { display: grid; grid-template-columns: 34px minmax(0, 1fr) 28px; align-items: center; gap: 6px; min-height: 28px; line-height: 20px; }
+  .admin-host-row .system-ipv4, .admin-host-row .system-ipv6 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 20px; }
+  .admin-host-row .traffic-info-container { gap: 4px; }
+  .admin-host-row .traffic-info-container > div { display: flex; align-items: center; min-height: 28px; line-height: 20px; }
+  .admin-host-row .copy-ip-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; padding: 0; border-radius: 50%;
+    background: #f4f4f5; color: #737373;
+  }
+  .admin-host-row .copy-ip-btn:hover, .admin-host-row > .edit-btn:hover { background: #e9eaec; color: #404040; }
+  .admin-host-row .copy-ip-btn:focus-visible, .admin-host-row > .edit-btn:focus-visible { outline: 2px solid #a3a3a3; outline-offset: 2px; }
+  .admin-host-row .copy-ip-btn svg { flex-shrink: 0; }
+  .dark .admin-host-row .copy-ip-btn, .dark .admin-host-row > .edit-btn { background: #2c2c2e; color: #a3a3a3; }
+  .dark .admin-host-row .copy-ip-btn:hover, .dark .admin-host-row > .edit-btn:hover { background: #38383a; color: #e5e5e5; }
+  @media (max-width: 800px) { .admin-host-info { column-gap: 12px; } }
   #edit-system-modal [data-modal-content] { max-height: calc(100dvh - 24px); overflow-y: auto; }
   .traffic-settings { min-width: 0; color: #525252; }
   .traffic-billing-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 3px; gap: 3px; border-radius: 10px; background: #f1f2f4; }
