@@ -4,14 +4,14 @@
 
 An independently maintained fork of [xhhcn/Pulse](https://github.com/xhhcn/Pulse) at [aoomee/Pulse](https://github.com/aoomee/Pulse), adding optional vnStat billing-cycle traffic and a refined frontend.
 
-[中文](README.md) · [Download prerelease](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.4) · [Container image](https://github.com/aoomee/Pulse/pkgs/container/pulse) · [Build checks](https://github.com/aoomee/Pulse/actions/workflows/publish-fork.yml) · [MIT](LICENSE)
+[中文](README.md) · [Download prerelease](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.5) · [Container image](https://github.com/aoomee/Pulse/pkgs/container/pulse) · [Build checks](https://github.com/aoomee/Pulse/actions/workflows/publish-fork.yml) · [MIT](LICENSE)
 
 ## Current version
 
-`v1.4.0-vnstat.4` is a published **prerelease for deployment testing**. The public image supports Linux amd64 / arm64 and does not require a GHCR login.
+`v1.4.0-vnstat.5` is a published **prerelease for deployment testing**. The public image supports Linux amd64 / arm64 and does not require a GHCR login.
 
 ```text
-ghcr.io/aoomee/pulse:1.4.0-vnstat.4
+ghcr.io/aoomee/pulse:1.4.0-vnstat.5
 ```
 
 Use the exact tag, not upstream `xhh1128/pulse` or `latest`. The default `main` branch contains the new source; deployments should use the release.
@@ -20,6 +20,8 @@ Verified: frontend build, Go tests/vet, server race tests, browser layout/motion
 
 ## Changes
 
+- Simplified “Servers” heading without a subtitle; a text-free loading ring respects reduced-motion preferences.
+- Centered sorting options without direction arrows, refined menu spacing, and keyboard focus restored after Escape.
 - A coordinated soft reveal waits for initial data and theme readiness, replacing overlapping navbar/icon/table animations; slower connections get a minimal waiting indicator.
 - Per-host monthly billing: upload only, download only, or both (default).
 - Current-cycle calibration uses the latest stored counters as a baseline; only subsequent deltas are added. It expires next cycle or when changing billing mode.
@@ -52,7 +54,7 @@ Use a new directory on a host without a conflicting container. If the directory 
 ```bash
 mkdir pulse
 cd pulse
-curl -fL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.4/docker-compose.yaml -o docker-compose.yaml
+curl -fL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/docker-compose.yaml -o docker-compose.yaml
 docker compose pull
 docker compose up -d
 docker compose ps
@@ -100,14 +102,14 @@ curl -fL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-serve
 bash install-pulse-server.sh
 ```
 
-The installer defaults to this fork’s `v1.4.0-vnstat.4`, with the binary at `/opt/pulse/pulse-server`, data at `/opt/pulse/data`, and port 8008. Do not run it alongside a Docker deployment on the same port. For an existing installation, back up first and stop `pulse-server` before running the installer.
+The installer defaults to this fork’s `v1.4.0-vnstat.5`, with the binary at `/opt/pulse/pulse-server`, data at `/opt/pulse/data`, and port 8008. Do not run it alongside a Docker deployment on the same port. For an existing installation, back up first and stop `pulse-server` before running the installer.
 
 ```bash
 systemctl status pulse-server
 journalctl -u pulse-server -n 100
 ```
 
-For manual installation, use the matching `pulse-server-standalone-linux-amd64` or `pulse-server-standalone-linux-arm64` asset from the [Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.4), which also contains clients, installers and `SHA256SUMS`.
+For manual installation, use the matching `pulse-server-standalone-linux-amd64` or `pulse-server-standalone-linux-arm64` asset from the [Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.5), which also contains clients, installers and `SHA256SUMS`.
 
 ---
 
@@ -160,7 +162,7 @@ Pulse supports IPv4/IPv6 dual-stack. If your server requires IPv6 support, pleas
    ```yaml
    services:
      pulse:
-       image: ghcr.io/aoomee/pulse:1.4.0-vnstat.4
+       image: ghcr.io/aoomee/pulse:1.4.0-vnstat.5
        container_name: pulse-monitor
        ports:
          - 8008:8008
@@ -206,13 +208,13 @@ Pulse supports IPv4/IPv6 dual-stack. If your server requires IPv6 support, pleas
 Run as root after replacing `YOUR_ID`, `SERVER_URL` and `YOUR_SECRET` with the values from your admin panel. Prefer the per-machine generated command to avoid mismatched credentials.
 
 ```bash
-curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.4/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 Linux clients can optionally use vnStat for current-month or billing-cycle traffic. Click the Linux icon beside a machine in the admin panel and enable “Monthly traffic with vnStat” to generate the command, or install it manually:
 
 ```bash
-curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.4/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET' --vnstat --traffic-reset-day 8
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET' --vnstat --traffic-reset-day 8
 ```
 
 - `--traffic-reset-day` accepts `1`–`28` and rotates in the monitored machine's local timezone.
@@ -225,7 +227,7 @@ curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.4/ins
 The install script auto-detects CPU architecture and registers the service as a `launchd` daemon (auto-starts on boot):
 
 ```bash
-curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.4/install.sh | sudo bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/install.sh | sudo bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 > **Note**: macOS requires `sudo` to write `.plist` files into `/Library/LaunchDaemons/`.
@@ -255,7 +257,7 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/com.pulse.client.plist
 $env:AgentId = 'YOUR_ID'
 $env:ServerBase = 'SERVER_URL'
 $env:Secret = 'YOUR_SECRET'
-irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.4/install.ps1 | iex
+irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/install.ps1 | iex
 ```
 
 | Parameter | Description |
@@ -436,9 +438,9 @@ curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-ser
 
 #    B. Docker Compose
 # mkdir pulse && cd pulse && \
-# curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.4/docker-compose.yaml -o docker-compose.yaml && \
+# curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.5/docker-compose.yaml -o docker-compose.yaml && \
 # docker compose up -d && \
-# curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/v1.4.0-vnstat.4/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
+# curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/v1.4.0-vnstat.5/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
 #       migrate.sh will auto-fetch its backup.sh/restore.sh siblings from the repo — one file is enough.
 
 # 2) One command — prompts for the OLD admin password (never shown on screen)

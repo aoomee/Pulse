@@ -4,8 +4,7 @@ import Icon from './Icon.astro';
 
 <div id="system-table-header-container" class="mt-3 sm:mt-0 mb-4 flex flex-wrap items-end justify-between gap-3 sm:gap-4">
   <div id="system-table-header-text">
-    <p id="all-systems-title" class="text-lg sm:text-xl md:text-2xl font-semibold text-[#262626] dark:text-[#f5f5f5] mb-0.5 leading-none">All Services</p>
-    <p id="all-systems-desc" class="text-xs sm:text-sm text-[#404040] dark:text-[#a3a3a3] leading-tight pb-0.5">Updated in real time. Click on a service to view information.</p>
+    <p id="all-systems-title" class="text-lg sm:text-xl md:text-2xl font-semibold text-[#262626] dark:text-[#f5f5f5] mb-0.5 leading-none">Servers</p>
   </div>
   <div class="flex items-center gap-2 sm:gap-3 w-full sm:w-auto pb-0.5">
     <div class="relative flex-1 sm:flex-none">
@@ -31,27 +30,36 @@ import Icon from './Icon.astro';
           <div id="sort-by-label" class="mb-1 px-2 py-1 text-xs font-semibold text-[#525252] dark:text-[#a3a3a3] uppercase">Sort by</div>
           <button class="sort-option w-full flex items-center justify-between rounded px-3 py-2 text-sm text-[#262626] dark:text-[#d4d4d4] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0]" data-sort="name">
             <span data-translate="name">Name</span>
-            <span class="sort-indicator hidden text-blue-600 dark:text-blue-400">
-              <Icon name="check" size={14} class="w-3.5 h-3.5 sm:w-[14px] sm:h-[14px]" />
-            </span>
           </button>
           <button class="sort-option w-full flex items-center justify-between rounded px-3 py-2 text-sm text-[#262626] dark:text-[#d4d4d4] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0]" data-sort="time">
             <span data-translate="time">Time</span>
-            <span class="sort-indicator hidden text-blue-600 dark:text-blue-400">
-              <Icon name="check" size={14} class="w-3.5 h-3.5 sm:w-[14px] sm:h-[14px]" />
-            </span>
           </button>
           <button class="sort-option w-full flex items-center justify-between rounded px-3 py-2 text-sm text-[#262626] dark:text-[#d4d4d4] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0]" data-sort="os">
             <span data-translate="os">OS</span>
-            <span class="sort-indicator hidden text-blue-600 dark:text-blue-400">
-              <Icon name="check" size={14} class="w-3.5 h-3.5 sm:w-[14px] sm:h-[14px]" />
-            </span>
           </button>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<style>
+  #system-table-header-container { align-items: center; }
+  #columns-dropdown {
+    width: 160px;
+    border-radius: 12px;
+    background: #ffffff;
+    border-color: #e5e5e5;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 8%);
+  }
+  #sort-by-label { text-align: center; font-weight: 400; color: #737373; }
+  .sort-option { position: relative; justify-content: center; padding-inline: 28px; border-radius: 8px; }
+  .sort-option:hover, .sort-option[aria-pressed="true"] { background: #f5f5f5; }
+  .sort-option:focus-visible, #columns-btn:focus-visible { outline: 2px solid #a3a3a3; outline-offset: 2px; }
+  :global(.dark) #columns-dropdown { background: #1c1c1c; border-color: #333333; }
+  :global(.dark) .sort-option:hover, :global(.dark) .sort-option[aria-pressed="true"] { background: #282828; }
+  :global(.dark) #sort-by-label { color: #a3a3a3; }
+</style>
 
 <script>
   // initI18n() wires the global `languagechange` event onto a
@@ -65,8 +73,7 @@ import Icon from './Icon.astro';
   
   // Translation map for this component
   const translations = {
-    'allSystems': { en: 'All Services', zh: '所有服务' },
-    'updatedInRealTime': { en: 'Updated in real time. Click on a service to view information.', zh: '实时更新。点击服务查看详细信息。' },
+    'allSystems': { en: 'Servers', zh: '服务器' },
     'filter': { en: 'Filter...', zh: '筛选...' },
     'columns': { en: 'Columns', zh: '列' },
     'sortBy': { en: 'Sort by', zh: '排序方式' },
@@ -81,10 +88,6 @@ import Icon from './Icon.astro';
     // Update title
     const title = document.getElementById('all-systems-title');
     if (title) title.textContent = translations.allSystems[lang];
-    
-    // Update description
-    const desc = document.getElementById('all-systems-desc');
-    if (desc) desc.textContent = translations.updatedInRealTime[lang];
     
     // Update filter placeholder
     const filterInput = document.getElementById('system-filter-input');

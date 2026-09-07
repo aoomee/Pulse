@@ -1,11 +1,9 @@
 ---
- // Normally covered by the shared first-paint gate; a quiet fallback if data is slow.
+import LoadingSpinner from './LoadingSpinner.astro';
 ---
-<div id="loading-indicator" role="status" aria-live="polite">
-  <span class="waiting-dot" aria-hidden="true"></span>
-  <span data-translate-detail="loading">Loading…</span>
+<div id="loading-indicator">
+  <LoadingSpinner />
 </div>
 <style>
-  #loading-indicator { min-height: 120px; display: flex; align-items: center; justify-content: center; gap: 9px; color: #737373; font-size: 12px; }
-  .waiting-dot { width: 5px; height: 5px; border-radius: 50%; background: #a3a3a3; }
+  #loading-indicator { min-height: 120px; display: flex; align-items: center; justify-content: center; }
 </style>

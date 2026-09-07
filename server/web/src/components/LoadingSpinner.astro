@@ -1,0 +1,16 @@
+<span class="pulse-spinner" role="status" aria-label="Loading" aria-busy="true"></span>
+<style>
+  .pulse-spinner {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border: 2px solid #e5e5e5;
+    border-top-color: #737373;
+    border-radius: 50%;
+    animation: pulse-loading-spin 850ms linear infinite;
+  }
+  :global(.dark) .pulse-spinner { border-color: #333333; border-top-color: #a3a3a3; }
+  @keyframes pulse-loading-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .pulse-spinner { animation: none; } }
+</style>

@@ -15,8 +15,7 @@ export interface Translations {
 // Translation dictionary
 const translations: Translations = {
   // SystemTable
-  'allSystems': { en: 'All Services', zh: '所有服务' },
-  'updatedInRealTime': { en: 'Updated in real time. Click on a service to view information.', zh: '实时更新。点击服务查看详细信息。' },
+  'allSystems': { en: 'Servers', zh: '服务器' },
   'filter': { en: 'Filter...', zh: '筛选...' },
   'columns': { en: 'Columns', zh: '列' },
   'sortBy': { en: 'Sort by', zh: '排序方式' },
@@ -124,4 +123,3 @@ export function initI18n(): void {
     });
   }
 }
-

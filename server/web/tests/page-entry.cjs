@@ -40,7 +40,7 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
         window.__badFrames = 0;
         window.__entryAnimations = [];
         document.addEventListener('animationstart', e => {
-          if (e.target.closest('#auth-check')) window.__entryAnimations.push(e.animationName);
+          if (e.target.closest('#auth-check') && !e.target.matches('.pulse-spinner')) window.__entryAnimations.push(e.animationName);
         });
         const sample = () => {
           const content = document.getElementById('auth-check');
@@ -61,6 +61,9 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
         };
       }, { delay: scenario === 'slow-data' ? 1400 : 100, expectTheme: scenario !== 'broken-theme' });
       await page.goto(base, { waitUntil: 'domcontentloaded' });
+      assert.equal((await page.locator('#login-redirect').innerText()).trim(), '', 'Loading overlay should have no visible text');
+      assert.equal(await page.locator('#login-redirect .pulse-spinner').count(), 1);
+      assert.equal(await page.locator('#login-redirect .pulse-spinner').evaluate(el => getComputedStyle(el).animationName), scenario === 'reduced-motion' ? 'none' : 'pulse-loading-spin');
       if (process.env.PULSE_SCREENSHOT_DIR && scenario === 'slow-data') {
         await page.waitForTimeout(450);
         await page.screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/page-entry-waiting.png` });
@@ -72,6 +75,52 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
       assert.deepEqual(await page.evaluate(() => window.__entryAnimations), [], 'Nested slide/stagger animations played');
       assert.equal(configRequests, 1, 'Duplicate configuration fetch');
       assert.equal(await page.locator('#login-redirect').isVisible(), false);
+      if (scenario === 'normal') {
+        assert.equal(await page.locator('#all-systems-title').textContent(), '服务器');
+        assert.equal(await page.locator('#all-systems-desc').count(), 0);
+        for (const width of [1100, 375]) {
+          await page.setViewportSize({ width, height: 780 });
+          for (const lang of ['zh', 'en']) {
+            await page.evaluate(lang => {
+              localStorage.setItem('preferred-language', lang);
+              window.dispatchEvent(new CustomEvent('languagechange', { detail: { language: lang } }));
+            }, lang);
+            await page.locator('#columns-btn').click();
+            assert.equal(await page.locator('#columns-btn').getAttribute('aria-expanded'), 'true');
+            await page.locator('.sort-option[data-sort="name"]').click();
+            assert.equal(await page.locator('#columns-dropdown svg, #columns-dropdown .sort-indicator').count(), 0, 'Sort menu should have no arrows');
+            for (const option of await page.locator('.sort-option').all()) {
+              const centered = await option.evaluate(el => {
+                const label = el.querySelector('[data-translate]').getBoundingClientRect();
+                const row = el.getBoundingClientRect();
+                return Math.abs((label.left + label.right - row.left - row.right) / 2) < 1;
+              });
+              assert(centered, `${width}/${lang}: dropdown label is not centered`);
+            }
+            assert(await page.locator('#columns-dropdown').evaluate(el => {
+              const r = el.getBoundingClientRect();
+              return r.left >= 0 && r.right <= innerWidth;
+            }), 'Dropdown leaves viewport');
+            if (process.env.PULSE_SCREENSHOT_DIR && lang === 'zh') {
+              await page.screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/menu-${width}.png` });
+              await page.locator('#theme-btn').click();
+              await page.waitForTimeout(400);
+              await page.locator('#columns-btn').click();
+              await page.screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/menu-dark-${width}.png` });
+              await page.locator('#theme-btn').click();
+              await page.waitForTimeout(400);
+              await page.locator('#columns-btn').click();
+            }
+            await page.keyboard.press('Escape');
+            assert.equal(await page.locator('#columns-btn').getAttribute('aria-expanded'), 'false');
+            assert(await page.locator('#columns-btn').evaluate(el => el === document.activeElement), 'Escape lost focus');
+            await page.locator('#columns-btn').click();
+            await page.locator('#all-systems-title').click();
+            assert.equal(await page.locator('#columns-btn').getAttribute('aria-expanded'), 'false');
+          }
+        }
+        await page.setViewportSize({ width: 1100, height: 780 });
+      }
       assert.deepEqual(errors, []);
       if (process.env.PULSE_SCREENSHOT_DIR && scenario === 'normal') await page.screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/page-entry-settled.png` });
       // Refresh uses the same single reveal and never flashes fallback branding.

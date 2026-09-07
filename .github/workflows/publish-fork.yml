@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag (for example v1.4.0-vnstat.4)
+        description: Existing release tag (for example v1.4.0-vnstat.5)
         required: true
         type: string
 
@@ -145,6 +145,8 @@ jobs:
           files: release/*
           body: |
             ## vnStat monthly traffic + refined dashboard
+            - Minimal Servers heading and text-free loading ring with reduced-motion support.
+            - Centered sort menu without direction arrows; Escape restores keyboard focus.
             - Coordinated soft page entry, theme/data readiness and a minimal waiting state; no overlapping entrance animations.
             - Optional Linux vnStat billing cycles and per-machine monthly allowances.
             - Upload/download/both billing selection and current-cycle usage calibration, automatically expired next cycle.
@@ -155,7 +157,7 @@ jobs:
             - Align newly added host names with the edit icon when no OS information exists.
             - Tests: Go tests/vet (server race tests), frontend build, browser clipboard/layout/motion regression, and published amd64 container smoke test.
 
-            Image (linux/amd64 and linux/arm64): `ghcr.io/aoomee/pulse:1.4.0-vnstat.4`
+            Image (linux/amd64 and linux/arm64): `ghcr.io/aoomee/pulse:1.4.0-vnstat.5`
             Use the attached `docker-compose.yaml`, then run `docker compose up -d` and open port 8008.
             Persist `/app/data`; back up existing data before upgrading. This is a prerelease for deployment testing.
             vnStat starts counting when installed; prior usage can be manually calibrated against the provider. Monthly usage defaults to RX + TX; select the provider's billing direction in Edit service.

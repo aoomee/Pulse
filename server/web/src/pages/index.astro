@@ -3,6 +3,7 @@ import '../styles/global.css';
 import NavBar from '../components/NavBar.astro';
 import SystemTable from '../components/SystemTable.astro';
 import Footer from '../components/Footer.astro';
+import LoadingSpinner from '../components/LoadingSpinner.astro';
 
 // API base will be auto-detected by client-side script
 // Can be overridden by PUBLIC_API_BASE environment variable
@@ -44,15 +45,11 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
         opacity: 1 !important;
       }
       html[data-pulse-home] #login-redirect { transition: opacity 160ms ease-out; }
-      .boot-hint { display: flex; flex-direction: column; align-items: center; gap: 14px; opacity: 0; animation: boot-hint-in 160ms 300ms ease-out forwards; }
-      .boot-mark { width: 36px; height: 3px; border-radius: 3px; background: #a3a3a3; animation: boot-breathe 1.6s ease-in-out infinite; }
-      .boot-hint p { margin: 0; font-size: 12px; color: #737373; }
+      .boot-hint { display: flex; align-items: center; justify-content: center; opacity: 0; animation: boot-hint-in 160ms 300ms ease-out forwards; }
       @keyframes boot-hint-in { to { opacity: 1; } }
-      @keyframes boot-breathe { 50% { opacity: .35; } }
       @media (prefers-reduced-motion: reduce) {
         html[data-pulse-home] #login-redirect { transition: none; }
         .boot-hint { animation: none; opacity: 1; }
-        .boot-mark { animation: none; }
       }
     </style>
     <script is:inline>
@@ -272,9 +269,8 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
       slide on top of the table's one-time data reveal.
     -->
     <div id="login-redirect" class="fixed inset-0 z-50 flex items-center justify-center bg-[#fafafa] dark:bg-[#151515] transition-opacity duration-200 ease-out">
-      <div class="boot-hint" role="status" aria-live="polite">
-        <span class="boot-mark" aria-hidden="true"></span>
-        <p id="boot-message">Loading…</p>
+      <div class="boot-hint">
+        <LoadingSpinner />
       </div>
     </div>
   </body>
@@ -317,8 +313,9 @@ const apiBase = import.meta.env.PUBLIC_API_BASE ?? '';
       const timer = setTimeout(resolve, ms);
       Promise.resolve(promise).catch(() => {}).finally(() => { clearTimeout(timer); resolve(); });
     });
-    const bootMessage = document.getElementById('boot-message');
-    if (bootMessage) bootMessage.textContent = document.documentElement.lang === 'zh' ? '正在连接监控…' : 'Connecting…';
+    document.querySelectorAll('.pulse-spinner').forEach(spinner => {
+      spinner.setAttribute('aria-label', document.documentElement.lang === 'zh' ? '加载中' : 'Loading');
+    });
     async function revealAuthContent() {
       if (revealed) return;
       revealed = true;

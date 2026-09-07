@@ -568,26 +568,13 @@ const apiBase = apiBaseProp ?? '';
 
   // Update sort UI
   function updateSortUI() {
-    // Update sort indicators
+    // Selection is shown by a quiet background, without direction icons.
     document.querySelectorAll('.sort-option').forEach(btn => {
-      const indicator = btn.querySelector('.sort-indicator');
+      btn.setAttribute('aria-pressed', String(btn.dataset.sort === currentSort.field));
       if (btn.dataset.sort === currentSort.field) {
         btn.classList.add('bg-[#282828]', 'dark:bg-[#282828]', 'bg-[#f5f5f5]');
-        if (indicator) {
-          indicator.classList.remove('hidden');
-          // Show direction arrow in indicator
-          const isAsc = currentSort.direction === 'asc';
-          indicator.innerHTML = isAsc 
-            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>'
-            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
-        }
       } else {
         btn.classList.remove('bg-[#282828]', 'dark:bg-[#282828]', 'bg-[#f5f5f5]');
-        if (indicator) {
-          indicator.classList.add('hidden');
-          // Reset to check icon
-          indicator.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
-        }
       }
     });
   }
@@ -596,17 +583,23 @@ const apiBase = apiBaseProp ?? '';
   const columnsBtn = document.getElementById('columns-btn');
   const columnsDropdown = document.getElementById('columns-dropdown');
   const columnsContainer = document.getElementById('columns-dropdown-container');
+  columnsBtn?.setAttribute('aria-controls', 'columns-dropdown');
+  columnsBtn?.setAttribute('aria-expanded', 'false');
+  function setColumnsOpen(open) {
+    columnsDropdown?.classList.toggle('hidden', !open);
+    columnsBtn?.setAttribute('aria-expanded', String(open));
+  }
 
   // Toggle dropdown
   columnsBtn?.addEventListener('click', (e) => {
     e.stopPropagation();
-    columnsDropdown?.classList.toggle('hidden');
+    setColumnsOpen(columnsDropdown?.classList.contains('hidden'));
   });
 
   // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (columnsContainer && !columnsContainer.contains(e.target)) {
-      columnsDropdown?.classList.add('hidden');
+      setColumnsOpen(false);
     }
   });
 
@@ -616,7 +609,8 @@ const apiBase = apiBaseProp ?? '';
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (columnsDropdown && !columnsDropdown.classList.contains('hidden')) {
-      columnsDropdown.classList.add('hidden');
+      setColumnsOpen(false);
+      columnsBtn?.focus();
     }
   });
 
