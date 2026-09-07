@@ -11,9 +11,11 @@ const fixture = [{ id: 'test-host', name: 'VMRACK', secret: "test-only-'quoted'"
     const context = await browser.newContext({ viewport: { width: 1100, height: 900 } });
     const page = await context.newPage();
     const errors = [];
+    let savedPayload;
     page.on('pageerror', error => errors.push(error.message));
     await page.route('**/api/**', route => {
       const path = new URL(route.request().url()).pathname;
+      if (path === '/api/metrics' && route.request().method() === 'POST') savedPayload = route.request().postDataJSON();
       return route.fulfill({ json: path === '/api/metrics' ? fixture :
         path === '/api/auth/status' ? { set: true } :
         path === '/api/auth/verify' ? { valid: true } :
@@ -112,6 +114,27 @@ const fixture = [{ id: 'test-host', name: 'VMRACK', secret: "test-only-'quoted'"
     assert.equal(await command.inputValue(), '');
     await page.locator('.copy-linux-cmd-btn').first().click();
     assert(!(await command.inputValue()).includes('--vnstat'));
+    await page.locator('#close-linux-install-modal-btn').click();
+    await command.waitFor({ state: 'hidden' });
+    await edit.click();
+    const settings = page.locator('#edit-system-form');
+    await settings.locator('label').filter({ has: page.locator('input[name="traffic_billing_mode"][value="out"]') }).click();
+    await settings.locator('[name="traffic_calibration"]').fill('854.71');
+    await settings.locator('[name="traffic_limit"]').fill('1');
+    await settings.locator('[name="traffic_limit_unit"]').selectOption('TB');
+    for (const width of [1100, 375]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.evaluate(() => document.documentElement.classList.remove('dark'));
+      await settings.locator('.traffic-settings').scrollIntoViewIfNeeded();
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+      if (process.env.PULSE_SCREENSHOT_DIR) await page.screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/traffic-settings-${width}.png` });
+    }
+    await settings.locator('button[type="submit"]').click();
+    await page.waitForFunction(() => document.querySelector('#edit-system-modal').classList.contains('hidden'));
+    assert.equal(savedPayload.traffic_billing_mode, 'out');
+    assert.equal(savedPayload.traffic_calibrate_bytes, 854710000000);
+    assert.equal(savedPayload.traffic_limit_bytes, 1e12);
+    console.log('PASS billing settings UI and calibration request');
     assert.deepEqual(errors, []);
     console.log('PASS responsive command box, modal reset, no JavaScript errors');
   } finally { await browser.close(); }

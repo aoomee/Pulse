@@ -558,6 +558,8 @@ func mergeAdminOwned(dst *SystemMetric, current *SystemMetric) {
 	dst.HideOnHome = current.HideOnHome
 	dst.HideTCPing = current.HideTCPing
 	dst.TrafficLimitBytes = current.TrafficLimitBytes
+	dst.TrafficBillingMode = current.TrafficBillingMode
+	dst.TrafficCalibration = current.TrafficCalibration
 	for target, cur := range current.TCPingData {
 		if mine, ok := dst.TCPingData[target]; !ok || cur.Timestamp.After(mine.Timestamp) {
 			if dst.TCPingData == nil {
@@ -576,6 +578,10 @@ func putAgentMetric(bucket *bolt.Bucket, metric SystemMetric) error {
 		var current SystemMetric
 		if err := json.Unmarshal(data, &current); err == nil {
 			mergeAdminOwned(&metric, &current)
+			// A new cycle or reset counters must never reuse an old calibration.
+			if metric.TrafficSource == "vnstat" && !trafficCalibrationMatches(metric) {
+				metric.TrafficCalibration = nil
+			}
 		}
 	}
 	data, err := json.Marshal(metric)

@@ -704,14 +704,39 @@ const apiBase = apiBaseProp ?? '';
     return formatTotalTraffic(bytes).replace(/\.00 (?=[A-Z])/u, ' ');
   }
 
+  function trafficResetDay(value) {
+    const day = Number(value);
+    return Number.isInteger(day) && day >= 1 && day <= 28 ? day : 1;
+  }
+
+  function monthlyTrafficBadge(value) {
+    const day = trafficResetDay(value);
+    return getCurrentLanguage() === 'zh'
+      ? `月流量 · ${day}日重置`
+      : `Monthly · Resets on day ${day}`;
+  }
+
   function getDisplayedTrafficTotals(item) {
     const monthly = item?.traffic_source === 'vnstat';
     const inBytes = Number(monthly ? item?.monthly_net_in_bytes : item?.total_net_in_bytes) || 0;
     const outBytes = Number(monthly ? item?.monthly_net_out_bytes : item?.total_net_out_bytes) || 0;
     const limitBytes = monthly ? Number(item?.traffic_limit_bytes || 0) : 0;
-    const totalBytes = inBytes + outBytes;
+    const mode = item?.traffic_billing_mode || 'sum';
+    let totalBytes = monthly && mode === 'in' ? inBytes : monthly && mode === 'out' ? outBytes : inBytes + outBytes;
+    const calibration = item?.traffic_calibration;
+    const calibrated = monthly && calibration && calibration.mode === mode &&
+      calibration.cycle_start === item.traffic_cycle_start && calibration.cycle_end === item.traffic_cycle_end &&
+      Number(calibration.reset_day) === Number(item.traffic_reset_day) &&
+      (mode === 'out' || inBytes >= Number(calibration.base_in)) &&
+      (mode === 'in' || outBytes >= Number(calibration.base_out));
+    if (calibrated) {
+      const baseline = mode === 'in' ? Number(calibration.base_in) : mode === 'out' ? Number(calibration.base_out) : Number(calibration.base_in) + Number(calibration.base_out);
+      totalBytes = Number(calibration.used_bytes) + Math.max(0, totalBytes - baseline);
+    }
     return {
       monthly,
+      mode,
+      calibrated: Boolean(calibrated),
       inBytes,
       outBytes,
       totalBytes,
@@ -752,6 +777,11 @@ const apiBase = apiBaseProp ?? '';
 
   function getMainTrafficTitle(item, displayedTraffic) {
     const parts = [];
+    if (displayedTraffic.monthly) {
+      const zh = getCurrentLanguage() === 'zh';
+      parts.push(displayedTraffic.mode === 'in' ? (zh ? '仅下载' : 'Download only') : displayedTraffic.mode === 'out' ? (zh ? '仅上传' : 'Upload only') : (zh ? '上传＋下载' : 'Upload + download'));
+      if (displayedTraffic.calibrated) parts.push(zh ? '含本账期用量校准' : 'Includes current-cycle calibration');
+    }
     if (displayedTraffic.hasLimit) {
       parts.push(`${formatTotalTraffic(displayedTraffic.totalBytes)} / ${formatTotalTraffic(displayedTraffic.limitBytes)}`);
     }
@@ -1082,7 +1112,7 @@ const apiBase = apiBaseProp ?? '';
                 </span>
               </div>
               `}
-              ${hasVnStatMonthly ? `<span class="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-700 dark:text-emerald-400" data-traffic-source-badge>vnStat · ${Number(item.traffic_reset_day || 1)}</span>` : ''}
+              ${hasVnStatMonthly ? `<span class="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-emerald-700 dark:text-emerald-400" data-traffic-source-badge data-reset-day="${trafficResetDay(item.traffic_reset_day)}">${monthlyTrafficBadge(item.traffic_reset_day)}</span>` : ''}
               ${displayedTraffic.hasLimit ? `<span class="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide tabular-nums text-blue-700 dark:text-blue-400" data-traffic-limit-badge>${formatTotalTraffic(displayedTraffic.totalBytes)} / ${formatTotalTraffic(displayedTraffic.limitBytes)} · ${displayedTraffic.percentage.toFixed(1)}%</span>` : ''}
             </div>
             ` : ''}
@@ -1163,6 +1193,9 @@ const apiBase = apiBaseProp ?? '';
 
   function updateTranslations() {
     const lang = getCurrentLanguage();
+    document.querySelectorAll('[data-traffic-source-badge]').forEach(badge => {
+      badge.textContent = monthlyTrafficBadge(badge.dataset.resetDay);
+    });
     const columnLabels = getColumnLabels();
     document.querySelectorAll('.system-metric-row').forEach(row => {
       Array.from(row.children).forEach((cell, index) => {
@@ -1282,6 +1315,8 @@ const apiBase = apiBaseProp ?? '';
       traffic_cycle_start: String(item.traffic_cycle_start || ''),
       traffic_cycle_end: String(item.traffic_cycle_end || ''),
       traffic_limit_bytes: Number(item.traffic_limit_bytes || 0),
+      traffic_billing_mode: String(item.traffic_billing_mode || 'sum'),
+      traffic_calibration: item.traffic_calibration || null,
       os: String(item.os || ''),
       os_icon: String(item.os_icon || ''),
       alert: Boolean(item.alert || false),
@@ -1326,6 +1361,8 @@ const apiBase = apiBaseProp ?? '';
       old.traffic_cycle_start !== new_.traffic_cycle_start ||
       old.traffic_cycle_end !== new_.traffic_cycle_end ||
       old.traffic_limit_bytes !== new_.traffic_limit_bytes ||
+      old.traffic_billing_mode !== new_.traffic_billing_mode ||
+      JSON.stringify(old.traffic_calibration) !== JSON.stringify(new_.traffic_calibration) ||
       old.os !== new_.os ||
       old.os_icon !== new_.os_icon ||
       old.alert !== new_.alert ||
@@ -1546,6 +1583,8 @@ const apiBase = apiBaseProp ?? '';
     // cycle; other systems show the legacy interface-counter total.
     const aggregateTrafficChanged = oldDisplayedTraffic.totalBytes !== newDisplayedTraffic.totalBytes;
     const aggregateTrafficMetaChanged =
+      oldItemNormalized.traffic_billing_mode !== newItemNormalized.traffic_billing_mode ||
+      JSON.stringify(oldItemNormalized.traffic_calibration) !== JSON.stringify(newItemNormalized.traffic_calibration) ||
       oldItemNormalized.traffic_reset_day !== newItemNormalized.traffic_reset_day ||
       oldItemNormalized.traffic_cycle_start !== newItemNormalized.traffic_cycle_start ||
       oldItemNormalized.traffic_cycle_end !== newItemNormalized.traffic_cycle_end ||
@@ -1709,7 +1748,10 @@ const apiBase = apiBaseProp ?? '';
 
           if (totalRow && item.traffic_source === 'vnstat') {
             const sourceBadge = totalRow.querySelector('[data-traffic-source-badge]');
-            if (sourceBadge) sourceBadge.textContent = `vnStat · ${Number(item.traffic_reset_day || 1)}`;
+            if (sourceBadge) {
+              sourceBadge.dataset.resetDay = String(trafficResetDay(item.traffic_reset_day));
+              sourceBadge.textContent = monthlyTrafficBadge(item.traffic_reset_day);
+            }
             totalRow.title = item.traffic_cycle_start && item.traffic_cycle_end
               ? `${item.traffic_cycle_start} → ${item.traffic_cycle_end}`
               : '';

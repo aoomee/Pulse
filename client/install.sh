@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Pulse Client Installation Script for Linux and macOS
-# Usage: curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.sh | sudo bash -s -- --id YOUR_ID --server http://YOUR_SERVER:8080
+# Usage: curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.3/install.sh | sudo bash -s -- --id YOUR_ID --server http://YOUR_SERVER:8080
 #
 
 set -e
@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 INSTALL_DIR="/opt/pulse"
 SERVICE_NAME="pulse-client"
 UPDATE_SERVICE_NAME="pulse-client-update"
-GITHUB_REPO="https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2"
+GITHUB_REPO="https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.3"
 CLIENT_PORT="9090"
 AGENT_NAME=""
 SECRET=""
@@ -192,7 +192,7 @@ show_help() {
     echo "  $0 --id my-server-1 --server http://monitor.example.com:8080 --vnstat --traffic-reset-day 8"
     echo ""
     echo "Or using curl:"
-    echo "  curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.sh | sudo bash -s -- --id my-server-1 --server http://monitor.example.com:8080 --secret my-secret"
+    echo "  curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.3/install.sh | sudo bash -s -- --id my-server-1 --server http://monitor.example.com:8080 --secret my-secret"
 }
 
 # Prompt for required values if not provided
@@ -561,7 +561,7 @@ create_update_script() {
 
 INSTALL_DIR="/opt/pulse"
 SERVICE_NAME="pulse-client"
-GITHUB_REPO="https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2"
+GITHUB_REPO="https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.3"
 CURRENT_BINARY="${INSTALL_DIR}/probe-client"
 TEMP_BINARY="${INSTALL_DIR}/probe-client.tmp"
 MACOS_PLIST_PATH="/Library/LaunchDaemons/com.pulse.client.plist"

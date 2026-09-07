@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 INSTALL_DIR="/opt/pulse"
 SERVICE_NAME="pulse-server"
 GITHUB_REPO="aoomee/Pulse"
-VERSION="v1.4.0-vnstat.2"  # Prereleases are not resolved by GitHub's /latest URL.
+VERSION="v1.4.0-vnstat.3"  # Prereleases are not resolved by GitHub's /latest URL.
 
 # Print colored message
 print_message() {

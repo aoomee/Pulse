@@ -253,6 +253,23 @@ const customCodePlaceholder = [
           <p class="mt-1 text-xs text-[#737373] dark:text-[#a3a3a3]" data-translate="monthlyTrafficLimitHint">Used for vnStat monthly percentage; leave empty or 0 to show usage only.</p>
         </div>
 
+        <fieldset class="traffic-settings">
+          <legend class="mb-2 text-sm font-medium" data-translate="trafficBillingLabel">Traffic billing</legend>
+          <div class="traffic-billing-choices">
+            <label><input type="radio" name="traffic_billing_mode" value="out" /><span data-translate="trafficUploadOnly">Upload only</span></label>
+            <label><input type="radio" name="traffic_billing_mode" value="in" /><span data-translate="trafficDownloadOnly">Download only</span></label>
+            <label><input type="radio" name="traffic_billing_mode" value="sum" checked /><span data-translate="trafficBoth">Upload + download</span></label>
+          </div>
+          <p class="mt-2 text-xs leading-relaxed text-[#737373] dark:text-[#a3a3a3]" data-translate="trafficBillingHint">Match your provider. Changing the billing method clears the previous calibration.</p>
+          <label for="edit-traffic-calibration" class="mb-1 mt-4 block text-sm font-medium" data-translate="trafficCalibrationLabel">Current-cycle usage calibration (optional)</label>
+          <div class="flex gap-2">
+            <input id="edit-traffic-calibration" class="traffic-control min-w-0 flex-1" type="number" name="traffic_calibration" min="0" step="0.01" inputmode="decimal" placeholder="854.71" />
+            <select name="traffic_calibration_unit" class="traffic-control w-20" aria-label="Calibration unit"><option value="GB">GB</option><option value="TB">TB</option></select>
+          </div>
+          <p class="mt-2 text-xs leading-relaxed text-[#737373] dark:text-[#a3a3a3]" data-translate="trafficCalibrationHint">Enter your provider's current usage, not an extra amount. Saved with Update service; subsequent traffic is added automatically. Expires next cycle. Leave blank to keep the current setting.</p>
+          <label id="traffic-clear-wrap" class="mt-2 hidden items-center gap-2 text-xs"><input type="checkbox" name="traffic_clear_calibration" /><span data-translate="trafficClearCalibration">Clear the saved calibration</span></label>
+        </fieldset>
+
         <!-- Per-system visibility toggles (admin-only; agents never touch them) -->
         <div class="space-y-2">
           <div class="flex items-center justify-between rounded-lg border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#222] dark:bg-[#222] bg-white px-3 py-2">
@@ -1085,7 +1102,7 @@ const customCodePlaceholder = [
     const system = pendingLinuxInstallSystem;
     if (!system || !linuxInstallCommand) return;
     const privilege = document.getElementById('linux-install-user')?.value === 'sudo' ? 'sudo ' : '';
-    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
+    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.3/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
     if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
     if (linuxVnstatToggle?.checked) {
       const iface = String(document.getElementById('linux-vnstat-interface')?.value || '').trim();
@@ -1185,6 +1202,12 @@ const customCodePlaceholder = [
       // Monthly allowance is an admin-owned value. Prefer TB for whole or
       // larger-terabyte quotas; otherwise keep the input comfortably in GB.
       const limitBytes = Number(system.traffic_limit_bytes || 0);
+      form.elements['traffic_billing_mode'].value = ['in', 'out'].includes(system.traffic_billing_mode) ? system.traffic_billing_mode : 'sum';
+      form.elements['traffic_calibration'].value = '';
+      form.elements['traffic_calibration_unit'].value = 'GB';
+      form.elements['traffic_clear_calibration'].checked = false;
+      document.getElementById('traffic-clear-wrap').classList.toggle('hidden', !system.traffic_calibration);
+      document.getElementById('traffic-clear-wrap').classList.toggle('flex', Boolean(system.traffic_calibration));
       const gb = 1000 ** 3;
       const tb = 1000 ** 4;
       const limitInput = form.elements['traffic_limit'];
@@ -1317,6 +1340,8 @@ const customCodePlaceholder = [
       traffic_source: String(item.traffic_source || 'interface'),
       traffic_reset_day: Number(item.traffic_reset_day || 0),
       traffic_limit_bytes: Number(item.traffic_limit_bytes || 0),
+      traffic_billing_mode: String(item.traffic_billing_mode || 'sum'),
+      traffic_calibration: JSON.stringify(item.traffic_calibration || null),
       cpu_model: String(item.cpu_model || ''),
       order: Number(item.order || 0),
       tags: Array.isArray(item.tags) ? item.tags : [],
@@ -1359,6 +1384,8 @@ const customCodePlaceholder = [
       old.traffic_source !== new_.traffic_source ||
       old.traffic_reset_day !== new_.traffic_reset_day ||
       old.traffic_limit_bytes !== new_.traffic_limit_bytes ||
+      old.traffic_billing_mode !== new_.traffic_billing_mode ||
+      old.traffic_calibration !== new_.traffic_calibration ||
       old.cpu_model !== new_.cpu_model ||
       old.order !== new_.order ||
       old.hide_on_home !== new_.hide_on_home ||
@@ -2329,7 +2356,9 @@ const customCodePlaceholder = [
               String(item.cpu_model || '') + '|' +
               String(item.virtualization_type || '') + '|' +
               (item.hide_on_home === true ? '1' : '0') + '|' +
-              (item.hide_tcping === true ? '1' : '0');
+              (item.hide_tcping === true ? '1' : '0') + '|' +
+              Number(item.traffic_limit_bytes || 0) + '|' +
+              String(item.traffic_billing_mode || 'sum') + '|' + JSON.stringify(item.traffic_calibration || null);
             if (oldEditPayload !== newEditPayload) {
               // Use original item data from API response (includes tags,
               // secret, etc.) for data-system attribute; the modal
@@ -2544,7 +2573,7 @@ const customCodePlaceholder = [
         if (secret) {
           command += `; \`$env:Secret=${powershellQuote(secret)}`;
         }
-        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.ps1 | iex }"`;
+        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.3/install.ps1 | iex }"`;
         
         const windowsIcon = newBtn.querySelector('.windows-icon');
         const checkIcon = newBtn.querySelector('.check-icon');
@@ -3140,6 +3169,13 @@ const customCodePlaceholder = [
         return;
       }
       const trafficLimitBytes = Math.round(trafficLimitValue * (trafficLimitUnit === 'TB' ? 1000 ** 4 : 1000 ** 3));
+      const calibrationInput = String(formData.get('traffic_calibration') || '').trim();
+      const calibrationBytes = Math.round(Number(calibrationInput) * (formData.get('traffic_calibration_unit') === 'TB' ? 1e12 : 1e9));
+      const clearCalibration = formData.has('traffic_clear_calibration');
+      if (!Number.isSafeInteger(trafficLimitBytes) || (calibrationInput !== '' && (!Number.isSafeInteger(calibrationBytes) || calibrationBytes < 0 || clearCalibration))) {
+        alert(localStorage.getItem('preferred-language') === 'zh' ? '请输入有效的流量数值；校准和清除不能同时选择。' : 'Enter a valid usage amount. Do not calibrate and clear at the same time.');
+        return;
+      }
 
       // Disable submit button only after every client-side validation has
       // passed, otherwise an invalid allowance would leave the form stuck.
@@ -3162,6 +3198,9 @@ const customCodePlaceholder = [
         hide_on_home: !editForm.elements['show_on_home'].checked,
         hide_tcping: !editForm.elements['show_tcping'].checked,
         traffic_limit_bytes: trafficLimitBytes,
+        traffic_billing_mode: String(formData.get('traffic_billing_mode') || 'sum'),
+        ...(calibrationInput !== '' ? { traffic_calibrate_bytes: calibrationBytes } : {}),
+        ...(clearCalibration ? { traffic_clear_calibration: true } : {}),
       };
 
 
@@ -4646,6 +4685,14 @@ const customCodePlaceholder = [
     'vnstatFallbackHint': { en: 'If vnStat cannot be installed, Pulse automatically falls back to interface totals.', zh: '如果 vnStat 无法安装，Pulse 会自动回退到原有网卡累计方式。' },
     'copyInstallCommand': { en: 'Copy command', zh: '复制命令' },
     'installCommandLabel': { en: 'Installation command', zh: '安装命令' },
+    'trafficBillingLabel': { en: 'Traffic billing', zh: '流量计费方式' },
+    'trafficUploadOnly': { en: 'Upload only', zh: '仅上传' },
+    'trafficDownloadOnly': { en: 'Download only', zh: '仅下载' },
+    'trafficBoth': { en: 'Both', zh: '上传＋下载' },
+    'trafficBillingHint': { en: 'Match your provider. Changing the billing method clears the previous calibration.', zh: '按商家的计费方式选择；切换方式会清除旧校准，可同时填写新用量。' },
+    'trafficCalibrationLabel': { en: 'Current-cycle usage calibration (optional)', zh: '本账期用量校准（选填）' },
+    'trafficCalibrationHint': { en: 'Enter the provider’s current usage, not an extra amount. Saved with Update service; subsequent traffic is added automatically. Expires next cycle. Leave blank to keep the current setting.', zh: '填写商家当前已用流量，不是额外增加量。点击“更新服务”保存，之后自动累加新增用量，下个账期失效；留空不修改。' },
+    'trafficClearCalibration': { en: 'Clear the saved calibration', zh: '清除已保存的校准，恢复探针实测用量' },
     'installCommandHint': { en: 'Run on the monitored host. Choose root or sudo to match your terminal user. Contains a secret; do not share.', zh: '在被监控主机执行，按登录身份选择 root 或 sudo。命令含密钥，请勿分享。' },
   };
 
@@ -4705,6 +4752,20 @@ const customCodePlaceholder = [
 </script>
 
 <style is:global>
+  #edit-system-modal [data-modal-content] { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .traffic-settings { min-width: 0; color: #525252; }
+  .traffic-billing-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 3px; gap: 3px; border-radius: 10px; background: #f1f2f4; }
+  .traffic-billing-choices label { position: relative; min-width: 0; cursor: pointer; }
+  .traffic-billing-choices input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .traffic-billing-choices span { display: block; padding: 9px 2px; text-align: center; font-size: 12px; border-radius: 7px; }
+  .traffic-billing-choices input:checked + span { background: #fff; color: #2563eb; box-shadow: 0 1px 3px #00000012; font-weight: 600; }
+  .traffic-billing-choices input:focus-visible + span { outline: 2px solid #3b82f6; outline-offset: 1px; }
+  .traffic-control { border: 1px solid #d4d4d480; border-radius: 8px; padding: 8px 12px; background: #fff; color: #262626; font-size: 14px; }
+  .traffic-control:focus { outline: 2px solid #3b82f680; outline-offset: 1px; }
+  .dark .traffic-settings { color: #d4d4d4; }
+  .dark .traffic-billing-choices { background: #151515; }
+  .dark .traffic-billing-choices input:checked + span { background: #333; color: #93c5fd; }
+  .dark .traffic-control { background: #222; border-color: #404040; color: #d4d4d4; }
   .system-secondary-info[data-empty="true"] { display: none; }
   #linux-install-modal .linux-install-panel { max-height: calc(100dvh - 24px); overflow-y: auto; }
   #linux-install-modal .linux-install-options:not(.hidden) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }

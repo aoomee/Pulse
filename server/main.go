@@ -8,6 +8,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -110,6 +111,8 @@ type SystemMetric struct {
 	TrafficCycleStart  string                      `json:"traffic_cycle_start,omitempty"`
 	TrafficCycleEnd    string                      `json:"traffic_cycle_end,omitempty"`
 	TrafficLimitBytes  uint64                      `json:"traffic_limit_bytes,omitempty"` // Admin-configured monthly allowance
+	TrafficBillingMode string                      `json:"traffic_billing_mode,omitempty"`
+	TrafficCalibration *TrafficCalibration         `json:"traffic_calibration,omitempty"`
 	AgentVersion       string                      `json:"agent_version"`
 	Order              int                         `json:"order"` // Display order for sorting
 	Alert              bool                        `json:"alert"`
@@ -343,37 +346,40 @@ func startTCPingCacheCleanup(ctx context.Context) {
 }
 
 type metricPayload struct {
-	ID                 string   `json:"id"`
-	Name               string   `json:"name"`
-	IPv4               string   `json:"ipv4,omitempty"`
-	IPv6               string   `json:"ipv6,omitempty"`
-	Uptime             int64    `json:"uptime"` // Uptime in seconds
-	Location           string   `json:"location,omitempty"`
-	VirtualizationType string   `json:"virtualization_type,omitempty"` // "VPS" or "DS"
-	OS                 string   `json:"os,omitempty"`
-	OSIcon             string   `json:"os_icon,omitempty"`
-	CPU                float64  `json:"cpu"`
-	CPUModel           string   `json:"cpu_model,omitempty"`
-	Memory             float64  `json:"memory"`
-	MemoryInfo         string   `json:"memory_info,omitempty"` // Format: "383.60 MiB / 1.88 GiB"
-	SwapInfo           string   `json:"swap_info,omitempty"`   // Format: "75.12 MiB / 975.00 MiB"
-	Disk               float64  `json:"disk"`
-	DiskInfo           string   `json:"disk_info,omitempty"` // Format: "9.86 GiB / 18.58 GiB"
-	NetInMBps          float64  `json:"net_in_mb_s"`
-	NetOutMBps         float64  `json:"net_out_mb_s"`
-	TotalNetInBytes    uint64   `json:"total_net_in_bytes,omitempty"`  // Total received bytes
-	TotalNetOutBytes   uint64   `json:"total_net_out_bytes,omitempty"` // Total transmitted bytes
-	MonthlyNetInBytes  uint64   `json:"monthly_net_in_bytes,omitempty"`
-	MonthlyNetOutBytes uint64   `json:"monthly_net_out_bytes,omitempty"`
-	TrafficSource      string   `json:"traffic_source,omitempty"`
-	TrafficResetDay    int      `json:"traffic_reset_day,omitempty"`
-	TrafficCycleStart  string   `json:"traffic_cycle_start,omitempty"`
-	TrafficCycleEnd    string   `json:"traffic_cycle_end,omitempty"`
-	TrafficLimitBytes  *uint64  `json:"traffic_limit_bytes,omitempty"` // Admin-only; nil preserves the saved value
-	AgentVersion       string   `json:"agent_version"`
-	Alert              bool     `json:"alert"`
-	Tags               []string `json:"tags,omitempty"`   // User-defined tags
-	Secret             string   `json:"secret,omitempty"` // Secret for client authentication (sent by client during registration)
+	ID                      string   `json:"id"`
+	Name                    string   `json:"name"`
+	IPv4                    string   `json:"ipv4,omitempty"`
+	IPv6                    string   `json:"ipv6,omitempty"`
+	Uptime                  int64    `json:"uptime"` // Uptime in seconds
+	Location                string   `json:"location,omitempty"`
+	VirtualizationType      string   `json:"virtualization_type,omitempty"` // "VPS" or "DS"
+	OS                      string   `json:"os,omitempty"`
+	OSIcon                  string   `json:"os_icon,omitempty"`
+	CPU                     float64  `json:"cpu"`
+	CPUModel                string   `json:"cpu_model,omitempty"`
+	Memory                  float64  `json:"memory"`
+	MemoryInfo              string   `json:"memory_info,omitempty"` // Format: "383.60 MiB / 1.88 GiB"
+	SwapInfo                string   `json:"swap_info,omitempty"`   // Format: "75.12 MiB / 975.00 MiB"
+	Disk                    float64  `json:"disk"`
+	DiskInfo                string   `json:"disk_info,omitempty"` // Format: "9.86 GiB / 18.58 GiB"
+	NetInMBps               float64  `json:"net_in_mb_s"`
+	NetOutMBps              float64  `json:"net_out_mb_s"`
+	TotalNetInBytes         uint64   `json:"total_net_in_bytes,omitempty"`  // Total received bytes
+	TotalNetOutBytes        uint64   `json:"total_net_out_bytes,omitempty"` // Total transmitted bytes
+	MonthlyNetInBytes       uint64   `json:"monthly_net_in_bytes,omitempty"`
+	MonthlyNetOutBytes      uint64   `json:"monthly_net_out_bytes,omitempty"`
+	TrafficSource           string   `json:"traffic_source,omitempty"`
+	TrafficResetDay         int      `json:"traffic_reset_day,omitempty"`
+	TrafficCycleStart       string   `json:"traffic_cycle_start,omitempty"`
+	TrafficCycleEnd         string   `json:"traffic_cycle_end,omitempty"`
+	TrafficLimitBytes       *uint64  `json:"traffic_limit_bytes,omitempty"` // Admin-only; nil preserves the saved value
+	TrafficBillingMode      *string  `json:"traffic_billing_mode,omitempty"`
+	TrafficCalibrateBytes   *uint64  `json:"traffic_calibrate_bytes,omitempty"`
+	TrafficClearCalibration bool     `json:"traffic_clear_calibration,omitempty"`
+	AgentVersion            string   `json:"agent_version"`
+	Alert                   bool     `json:"alert"`
+	Tags                    []string `json:"tags,omitempty"`   // User-defined tags
+	Secret                  string   `json:"secret,omitempty"` // Secret for client authentication (sent by client during registration)
 	// Admin-only visibility toggles. Pointers so "not provided" (agent
 	// pushes, older admin UIs) is distinguishable from an explicit false.
 	HideOnHome *bool `json:"hide_on_home,omitempty"`
@@ -2158,7 +2164,11 @@ func handleIngestMetric(store *Store, broker *SSEBroker, w http.ResponseWriter, 
 	if isFromClient {
 		saveErr = store.UpsertFromAgent(metric)
 	} else {
-		saveErr = store.Upsert(metric)
+		metric, saveErr = store.SaveAdminTraffic(metric, payload.TrafficBillingMode, payload.TrafficCalibrateBytes, payload.TrafficClearCalibration)
+		if saveErr != nil && errors.Is(saveErr, errTrafficSettings) {
+			http.Error(w, saveErr.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	if saveErr != nil {
 		http.Error(w, "internal server error", http.StatusInternalServerError)
@@ -2927,7 +2937,12 @@ func markSystemAsOffline(store *Store, broker *SSEBroker, systemID string) {
 		// not-in-registry fallback threshold (12 s).
 		existing.Alert = true
 		existing.UpdatedAt = time.Now().UTC().Add(-13 * time.Second)
-		store.Upsert(*existing) //nolint:errcheck
+		_ = store.patchMetric(systemID, func(current *SystemMetric) {
+			if time.Since(current.UpdatedAt) >= 5*time.Second {
+				current.Alert = true
+				current.UpdatedAt = existing.UpdatedAt
+			}
+		})
 	}
 }
 
@@ -4104,7 +4119,7 @@ func handleSetNavbarConfig(store *Store, w http.ResponseWriter, r *http.Request)
 			for _, system := range systems {
 				// Update each system's secret to the new shared secret
 				system.Secret = config.SharedSecret
-				if err := store.Upsert(system); err != nil {
+				if err := store.patchMetric(system.ID, func(current *SystemMetric) { current.Secret = config.SharedSecret }); err != nil {
 					log.Printf("⚠️ Warning: Failed to update secret for system %s: %v", system.ID, err)
 				}
 			}
@@ -4807,7 +4822,15 @@ func startTCPingPolling(ctx context.Context, registry *ClientRegistry, store *St
 								Latency:   tcpingResp.Latency,
 								Timestamp: time.Now().UTC(),
 							}
-							if err := store.Upsert(*existing); err != nil {
+							if err := store.patchMetric(clientID, func(current *SystemMetric) {
+								if current.TCPingData == nil {
+									current.TCPingData = make(map[string]TCPingTargetData)
+								}
+								incoming := existing.TCPingData[tgt.Address]
+								if !current.TCPingData[tgt.Address].Timestamp.After(incoming.Timestamp) {
+									current.TCPingData[tgt.Address] = incoming
+								}
+							}); err != nil {
 								// Update failed silently
 							}
 						}

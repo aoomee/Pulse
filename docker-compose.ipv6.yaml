@@ -1,6 +1,6 @@
 services:
   pulse:
-    image: ghcr.io/aoomee/pulse:1.4.0-vnstat.2
+    image: ghcr.io/aoomee/pulse:1.4.0-vnstat.3
     container_name: pulse-monitor
     ports:
       - 8008:8008

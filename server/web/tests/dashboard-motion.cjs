@@ -9,7 +9,7 @@ const fixture = [
   { id: 'ui-1', name: 'Alpha', time: '18d', cpu: 1.1, memory: 36.6, disk: 30.2, total_net_in_bytes: 70e9 },
   { id: 'ui-2', name: 'Beta', time: '256d', cpu: .9, memory: 25, disk: 20.5 },
   { id: 'ui-3', name: 'Host-C(IPV6)', time: '50d', cpu: 2.7, memory: 12.7, disk: 4.4,
-    traffic_source: 'vnstat', monthly_net_in_bytes: 430e9, monthly_net_out_bytes: 70e9, traffic_limit_bytes: 1e12 }
+    traffic_source: 'vnstat', traffic_reset_day: 18, traffic_cycle_start: '2026-08-18', traffic_cycle_end: '2026-09-18', monthly_net_in_bytes: 430e9, monthly_net_out_bytes: 70e9, traffic_limit_bytes: 1e12 }
 ];
 
 (async () => {
@@ -28,6 +28,7 @@ const fixture = [
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       let snapshot = structuredClone(fixture);
+      await page.route('**/api/navbar/config', route => route.fulfill({ json: { show_traffic: true } }));
       await page.route('**/api/privacy/config', async route => {
         await new Promise(resolve => setTimeout(resolve, scenario.authDelay));
         await route.fulfill({ json: { enabled: false } });
@@ -37,6 +38,7 @@ const fixture = [
       await page.addInitScript(({ initial, delay }) => {
         localStorage.setItem('preferred-language', 'zh');
         localStorage.setItem('theme', 'light');
+        window.__navbarConfig = { show_traffic: true };
         window.__fadeCalls = [];
         window.__rowAnimations = [];
         window.__splitPaints = 0;
@@ -80,6 +82,21 @@ const fixture = [
       const initialFades = await page.evaluate(() => window.__fadeCalls.length);
       assert.equal(initialFades, scenario.reduced || scenario.authDelay ? 0 : 1, `${scenario.name}: unexpected initial fade`);
       if (scenario.name === 'normal') {
+        const monthlyRow = page.locator('.system-metric-row[data-system-id="ui-3"]');
+        await monthlyRow.click();
+        const badge = page.locator('[data-traffic-source-badge]');
+        assert.equal(await badge.textContent(), '月流量 · 18日重置');
+        await page.evaluate(() => {
+          localStorage.setItem('preferred-language', 'en');
+          window.dispatchEvent(new CustomEvent('languagechange', { detail: { language: 'en' } }));
+        });
+        assert.equal(await badge.textContent(), 'Monthly · Resets on day 18');
+        await page.evaluate(() => {
+          localStorage.setItem('preferred-language', 'zh');
+          window.dispatchEvent(new CustomEvent('languagechange', { detail: { language: 'zh' } }));
+        });
+        assert.equal(await badge.textContent(), '月流量 · 18日重置');
+        await monthlyRow.click();
         const identity = page.locator('.system-metric-row[data-system-id="ui-3"] .system-identity');
         const namePosition = () => identity.evaluate(cell => {
           const name = cell.querySelector('.system-name').getBoundingClientRect();
@@ -127,6 +144,22 @@ const fixture = [
       assert.equal(await page.locator('[data-main-traffic-track]').getAttribute('aria-valuenow'), '60');
       assert.equal(await page.locator('[data-main-traffic-bar]').evaluate(e => e.style.width), '60%');
       assert(await page.evaluate(() => window.__originalRows.every(row => row.isConnected)), 'Metric update replaced a row');
+      if (scenario.name === 'normal') {
+        for (const [mode, expected] of [['in', '530 GB'], ['out', '70 GB'], ['sum', '600 GB']]) {
+          await push(updated.map(s => ({ ...s, traffic_billing_mode: mode })));
+          await page.waitForFunction(expected => document.querySelector('[data-traffic-used]').textContent === expected, expected);
+        }
+        const calibrated = updated.map(s => s.id !== 'ui-3' ? s : ({ ...s, traffic_billing_mode: 'sum',
+          traffic_calibration: { used_bytes: 854.71e9, base_in: 530e9, base_out: 70e9, cycle_start: '2026-08-18', cycle_end: '2026-09-18', reset_day: 18, mode: 'sum' } }));
+        await push(calibrated);
+        await page.waitForFunction(() => document.querySelector('[data-traffic-used]').textContent === '854.71 GB');
+        await push(calibrated.map(s => s.id === 'ui-3' ? { ...s, monthly_net_in_bytes: 630e9 } : s));
+        await page.waitForFunction(() => document.querySelector('[data-traffic-used]').textContent === '954.71 GB');
+        await push(calibrated.map(s => s.id === 'ui-3' ? { ...s, traffic_cycle_start: '2026-09-18', traffic_cycle_end: '2026-10-18', monthly_net_in_bytes: 20e9, monthly_net_out_bytes: 30e9 } : s));
+        await page.waitForFunction(() => document.querySelector('[data-traffic-used]').textContent === '50 GB');
+        await push(updated);
+        console.log('PASS billing directions, calibration without double counting, live increment and cycle expiry');
+      }
 
       // Reorder, a real row addition, filter-away/restore and conditional
       // markup rebuilds must not replay entrance animations.
