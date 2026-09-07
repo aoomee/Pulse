@@ -4,14 +4,14 @@
 
 基于 [xhhcn/Pulse](https://github.com/xhhcn/Pulse) 的二次开发版本，由 [aoomee/Pulse](https://github.com/aoomee/Pulse) 独立维护。保留上游监控功能，增加可选 vnStat 月流量与精简对齐的前端。
 
-[English](README_EN.md) · [下载测试版](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1) · [容器镜像](https://github.com/aoomee/Pulse/pkgs/container/pulse) · [构建检查](https://github.com/aoomee/Pulse/actions/runs/33977107938) · [MIT](LICENSE)
+[English](README_EN.md) · [下载测试版](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.2) · [容器镜像](https://github.com/aoomee/Pulse/pkgs/container/pulse) · [构建检查](https://github.com/aoomee/Pulse/actions/workflows/publish-fork.yml) · [MIT](LICENSE)
 
 ## 当前版本
 
-`v1.4.0-vnstat.1` 是已发布的 **Pre-release 测试版**。镜像支持 Linux amd64 / arm64，公开拉取，无需登录 GHCR。
+`v1.4.0-vnstat.2` 是已发布的 **Pre-release 测试版**。镜像支持 Linux amd64 / arm64，公开拉取，无需登录 GHCR。
 
 ```text
-ghcr.io/aoomee/pulse:1.4.0-vnstat.1
+ghcr.io/aoomee/pulse:1.4.0-vnstat.2
 ```
 
 请使用这个完整版本号，不要使用上游的 `xhh1128/pulse`，也不要替换成 `latest`。本仓库 `main` 包含新版源码；部署使用已发布版本，不需要自行切换开发分支。
@@ -20,6 +20,8 @@ ghcr.io/aoomee/pulse:1.4.0-vnstat.1
 
 ## 本版改动
 
+- 修复 Linux 安装命令复制无反应：增加可手动复制的命令框、root / sudo 选择及 HTTP 页面复制兼容处理。
+- 修复新主机尚无系统信息时，名称与左侧编辑图标不在同一水平线的问题。
 - 可选 vnStat 月流量模式，支持每月 1–28 日切换账期；没有可用 vnStat 数据时保留网卡累计统计。
 - 每台机器可配置月额度，进度条内直接显示 `500 GB / 1 TB`，不单独显示百分比。
 - 未启用月流量模式时，只显示累计流量数值，没有进度条或“总”字标记。
@@ -46,7 +48,7 @@ docker compose version
 ```bash
 mkdir pulse
 cd pulse
-curl -fL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/docker-compose.yaml -o docker-compose.yaml
+curl -fL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/docker-compose.yaml -o docker-compose.yaml
 docker compose pull
 docker compose up -d
 docker compose ps
@@ -74,7 +76,7 @@ docker compose up -d
 
 1. 在 `/admin` 添加机器，点击对应机器右侧的 Linux 图标。
 2. 开启“使用 vnStat 统计月流量”，填写重置日（1–28），按需指定网卡。
-3. 在被监控机器执行生成的命令。若已是 root 且没有 sudo，去掉命令中的 `sudo`。
+3. 在命令框右上角选择 `root` 或 `sudo`（默认 root），点击“复制命令”并在被监控机器执行。也可直接选中框内命令手动复制。
 4. 在“编辑服务”中设置月额度（GB / TB）；例如填 `1 TB`，累计到 `500 GB` 时填充一半。
 
 月流量按 **下载 + 上传合计**，额度用十进制单位（1 TB = 1000 GB）。留空或填 0 时不显示额度进度条。实时网速仍取自网卡，不受 vnStat 模式影响。
@@ -92,14 +94,14 @@ curl -fL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-serve
 bash install-pulse-server.sh
 ```
 
-安装器默认使用本 fork 的 `v1.4.0-vnstat.1`，程序位于 `/opt/pulse/pulse-server`，数据位于 `/opt/pulse/data`，端口 8008。不要与同端口的 Docker 部署同时运行。已有安装升级前先备份，并停止 `pulse-server` 服务后再运行安装器。
+安装器默认使用本 fork 的 `v1.4.0-vnstat.2`，程序位于 `/opt/pulse/pulse-server`，数据位于 `/opt/pulse/data`，端口 8008。不要与同端口的 Docker 部署同时运行。已有安装升级前先备份，并停止 `pulse-server` 服务后再运行安装器。
 
 ```bash
 systemctl status pulse-server
 journalctl -u pulse-server -n 100
 ```
 
-手动下载请到 [Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.1) 选择 `pulse-server-standalone-linux-amd64` 或 `pulse-server-standalone-linux-arm64`。Release 同时提供客户端、安装脚本和 `SHA256SUMS`。
+手动下载请到 [Release](https://github.com/aoomee/Pulse/releases/tag/v1.4.0-vnstat.2) 选择 `pulse-server-standalone-linux-amd64` 或 `pulse-server-standalone-linux-arm64`。Release 同时提供客户端、安装脚本和 `SHA256SUMS`。
 
 ---
 
@@ -152,7 +154,7 @@ Pulse 支持 IPv4/IPv6 双栈，如果您的服务器需要 IPv6 支持，请按
    ```yaml
    services:
      pulse:
-       image: ghcr.io/aoomee/pulse:1.4.0-vnstat.1
+       image: ghcr.io/aoomee/pulse:1.4.0-vnstat.2
        container_name: pulse-monitor
        ports:
          - 8008:8008
@@ -198,13 +200,13 @@ Pulse 支持 IPv4/IPv6 双栈，如果您的服务器需要 IPv6 支持，请按
 以下以 root 执行，请先把 `YOUR_ID`、`SERVER_URL`、`YOUR_SECRET` 替换为后台提供的值。优先使用后台为该机器生成的命令，避免密钥或 ID 填错。
 
 ```bash
-curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 Linux 客户端可选用 vnStat 统计当前月或当前账期流量。管理后台点击机器右侧的 Linux 图标，开启“使用 vnStat 统计月流量”后即可生成对应命令；也可以手动安装：
 
 ```bash
-curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET' --vnstat --traffic-reset-day 8
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.sh | bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET' --vnstat --traffic-reset-day 8
 ```
 
 - `--traffic-reset-day` 可设为 `1`–`28`，按被监控机器的本地时区切换账期。
@@ -217,7 +219,7 @@ curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/ins
 安装脚本会自动检测 CPU 架构，并将服务注册为 `launchd` 守护进程（开机自动启动）：
 
 ```bash
-curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
+curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.sh | sudo bash -s -- --id 'YOUR_ID' --server 'SERVER_URL' --secret 'YOUR_SECRET'
 ```
 
 > **注意**：macOS 需要 `sudo` 权限以便将 `.plist` 写入 `/Library/LaunchDaemons/`。
@@ -247,7 +249,7 @@ sudo launchctl bootstrap system /Library/LaunchDaemons/com.pulse.client.plist
 $env:AgentId = 'YOUR_ID'
 $env:ServerBase = 'SERVER_URL'
 $env:Secret = 'YOUR_SECRET'
-irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.ps1 | iex
+irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.ps1 | iex
 ```
 
 | 参数 | 说明 |
@@ -428,9 +430,9 @@ curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/main/install-pulse-ser
 
 #    B. Docker Compose
 # mkdir pulse && cd pulse && \
-# curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/docker-compose.yaml -o docker-compose.yaml && \
+# curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/docker-compose.yaml -o docker-compose.yaml && \
 # docker compose up -d && \
-# curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/v1.4.0-vnstat.1/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
+# curl -fsSL https://raw.githubusercontent.com/aoomee/Pulse/v1.4.0-vnstat.2/scripts/migrate.sh -o migrate.sh && chmod +x migrate.sh
 #       migrate.sh 会自动从仓库拉取它所依赖的 backup.sh / restore.sh，一个文件够用
 
 # 2) 一条命令迁移 —— 交互式输入旧服务器的管理员密码

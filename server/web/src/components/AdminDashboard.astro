@@ -128,11 +128,11 @@ const customCodePlaceholder = [
   </div>
 
   <!-- Linux Install Options Modal -->
-  <div id="linux-install-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 dark:bg-black/50 bg-black/30 backdrop-blur-sm" data-modal>
-    <div class="mx-4 w-full max-w-md rounded-xl border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#1c1c1c] dark:bg-[#1c1c1c] bg-white p-6 shadow-2xl" data-modal-content>
+  <div id="linux-install-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 backdrop-blur-sm dark:bg-black/50" role="dialog" aria-modal="true" aria-labelledby="linux-install-title" data-modal>
+    <div class="linux-install-panel mx-3 w-full max-w-xl rounded-2xl border border-[#e5e5e5] bg-white p-5 shadow-2xl dark:border-[#404040] dark:bg-[#1c1c1c] sm:p-6" data-modal-content>
       <div class="mb-5 flex items-center justify-between">
         <div>
-          <h2 class="text-xl font-semibold text-[#262626] dark:text-[#f5f5f5]" data-translate="linuxInstallTitle">Linux installation</h2>
+          <h2 id="linux-install-title" class="text-xl font-semibold text-[#262626] dark:text-[#f5f5f5]" data-translate="linuxInstallTitle">Linux installation</h2>
           <p id="linux-install-system-name" class="mt-1 text-xs text-[#525252] dark:text-[#737373]"></p>
         </div>
         <button id="close-linux-install-modal-btn" class="rounded-lg p-1 text-[#525252] dark:text-[#a3a3a3] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0]" title="Close" aria-label="Close" data-title-en="Close" data-title-zh="关闭">
@@ -152,7 +152,7 @@ const customCodePlaceholder = [
           </label>
         </div>
 
-        <div id="linux-vnstat-options" class="hidden space-y-4 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+        <div id="linux-vnstat-options" class="hidden linux-install-options">
           <div>
             <label for="linux-vnstat-interface" class="mb-1 block text-sm font-medium text-[#525252] dark:text-[#a3a3a3]" data-translate="networkInterfaceLabel">Network interface</label>
             <input id="linux-vnstat-interface" type="text" placeholder="Auto-detect (for example: eth0)" data-placeholder-en="Auto-detect (for example: eth0)" data-placeholder-zh="自动检测（例如 eth0）" class="w-full rounded-lg border border-[#d4d4d4]/50 bg-white px-3 py-2 text-sm text-[#262626] outline-none transition-colors focus:border-[#737373] focus:bg-[#fafafa] dark:border-[#404040]/50 dark:bg-[#222] dark:text-[#d4d4d4] dark:focus:border-[#525252] dark:focus:bg-[#282828]" />
@@ -168,6 +168,19 @@ const customCodePlaceholder = [
         </div>
 
         <p class="text-xs text-[#525252] dark:text-[#737373]" data-translate="vnstatFallbackHint">If vnStat cannot be installed, Pulse automatically falls back to interface totals.</p>
+
+        <div class="linux-command-frame">
+          <div class="flex items-center justify-between gap-3 px-4 pt-3">
+            <label for="linux-install-command" class="text-xs font-medium text-[#525252] dark:text-[#a3a3a3]" data-translate="installCommandLabel">Installation command</label>
+            <select id="linux-install-user" aria-label="root / sudo" class="rounded-md border border-[#d4d4d4]/50 bg-transparent px-2 py-1 font-mono text-xs text-[#525252] dark:border-[#404040] dark:text-[#d4d4d4]">
+              <option value="root">root</option>
+              <option value="sudo">sudo</option>
+            </select>
+          </div>
+          <textarea id="linux-install-command" class="linux-command-text" rows="5" readonly spellcheck="false" autocapitalize="off" wrap="soft" aria-describedby="linux-command-hint linux-copy-status"></textarea>
+        </div>
+        <p id="linux-command-hint" class="text-xs leading-relaxed text-[#737373] dark:text-[#a3a3a3]" data-translate="installCommandHint">Run on the monitored host. Choose root or sudo to match your terminal user. Contains a secret; do not share.</p>
+        <p id="linux-copy-status" class="linux-copy-status" role="status" aria-live="polite"></p>
 
         <div class="flex gap-3 pt-1">
           <button type="button" id="cancel-linux-install-btn" class="flex-1 rounded-lg border border-[#d4d4d4]/50 bg-white px-4 py-2 text-sm font-semibold text-[#262626] transition-colors hover:bg-[#f0f0f0] dark:border-[#404040]/50 dark:bg-[#222] dark:text-[#d4d4d4] dark:hover:bg-[#282828]">
@@ -1053,11 +1066,42 @@ const customCodePlaceholder = [
   const copyLinuxInstallBtn = document.getElementById('copy-linux-install-btn');
   const linuxVnstatToggle = document.getElementById('linux-vnstat-toggle');
   const linuxVnstatOptions = document.getElementById('linux-vnstat-options');
+  const linuxInstallCommand = document.getElementById('linux-install-command');
+  const linuxCopyStatus = document.getElementById('linux-copy-status');
   let pendingLinuxInstallSystem = null;
+  let linuxCopyRevision = 0;
+
+  function resetLinuxCopyFeedback() {
+    linuxCopyRevision++;
+    if (linuxCopyStatus) linuxCopyStatus.textContent = '';
+    if (copyLinuxInstallBtn) {
+      copyLinuxInstallBtn.disabled = false;
+      copyLinuxInstallBtn.querySelector('span').textContent = localStorage.getItem('preferred-language') === 'zh' ? '复制命令' : 'Copy command';
+    }
+  }
+
+  function updateLinuxInstallCommand() {
+    resetLinuxCopyFeedback();
+    const system = pendingLinuxInstallSystem;
+    if (!system || !linuxInstallCommand) return;
+    const privilege = document.getElementById('linux-install-user')?.value === 'sudo' ? 'sudo ' : '';
+    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
+    if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
+    if (linuxVnstatToggle?.checked) {
+      const iface = String(document.getElementById('linux-vnstat-interface')?.value || '').trim();
+      const value = Number(document.getElementById('linux-traffic-reset-day')?.value || 1);
+      const day = Math.min(28, Math.max(1, Number.isFinite(value) ? Math.trunc(value) : 1));
+      command += ` --vnstat --traffic-reset-day ${day}`;
+      if (iface) command += ` --vnstat-interface ${shellQuote(iface)}`;
+    }
+    linuxInstallCommand.value = command;
+  }
 
   function closeLinuxInstallModal() {
+    resetLinuxCopyFeedback();
     closeModalWithAnimation(linuxInstallModal, () => {
       pendingLinuxInstallSystem = null;
+      if (linuxInstallCommand) linuxInstallCommand.value = '';
       if (linuxVnstatToggle) linuxVnstatToggle.checked = false;
       linuxVnstatOptions?.classList.add('hidden');
       const iface = document.getElementById('linux-vnstat-interface');
@@ -1071,40 +1115,40 @@ const customCodePlaceholder = [
     pendingLinuxInstallSystem = system;
     const name = document.getElementById('linux-install-system-name');
     if (name) name.textContent = system?.name || system?.id || '';
+    updateLinuxInstallCommand();
     openModalWithAnimation(linuxInstallModal);
   }
 
   linuxVnstatToggle?.addEventListener('change', () => {
     linuxVnstatOptions?.classList.toggle('hidden', !linuxVnstatToggle.checked);
+    updateLinuxInstallCommand();
   });
+  document.getElementById('linux-vnstat-interface')?.addEventListener('input', updateLinuxInstallCommand);
+  document.getElementById('linux-install-user')?.addEventListener('change', updateLinuxInstallCommand);
+  document.getElementById('linux-traffic-reset-day')?.addEventListener('input', updateLinuxInstallCommand);
+  linuxInstallCommand?.addEventListener('focus', () => linuxInstallCommand.select());
   closeLinuxInstallBtn?.addEventListener('click', closeLinuxInstallModal);
   cancelLinuxInstallBtn?.addEventListener('click', closeLinuxInstallModal);
   linuxInstallModal?.addEventListener('click', (e) => {
     if (e.target === linuxInstallModal) closeLinuxInstallModal();
   });
   copyLinuxInstallBtn?.addEventListener('click', async () => {
-    const system = pendingLinuxInstallSystem;
-    if (!system) return;
-    const serverUrl = window.location.origin;
-    let command = `curl -sSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.sh | sudo bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(serverUrl)}`;
-    if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
-
-    if (linuxVnstatToggle?.checked) {
-      const iface = String(document.getElementById('linux-vnstat-interface')?.value || '').trim();
-      const resetInput = Number(document.getElementById('linux-traffic-reset-day')?.value || 1);
-      const resetDay = Math.min(28, Math.max(1, Number.isFinite(resetInput) ? Math.trunc(resetInput) : 1));
-      command += ` --vnstat --traffic-reset-day ${resetDay}`;
-      if (iface) command += ` --vnstat-interface ${shellQuote(iface)}`;
-    }
-
-    if (await copyToClipboard(command)) {
-      const label = copyLinuxInstallBtn.querySelector('span');
-      const original = label?.textContent || 'Copy command';
-      if (label) label.textContent = localStorage.getItem('preferred-language') === 'zh' ? '已复制' : 'Copied';
-      setTimeout(() => {
-        if (label) label.textContent = original;
-        closeLinuxInstallModal();
-      }, 650);
+    if (!pendingLinuxInstallSystem || !linuxInstallCommand?.value) return;
+    const revision = linuxCopyRevision;
+    copyLinuxInstallBtn.disabled = true;
+    const copied = await copyToClipboard(linuxInstallCommand.value, linuxInstallCommand);
+    if (revision !== linuxCopyRevision) return;
+    copyLinuxInstallBtn.disabled = false;
+    const zh = localStorage.getItem('preferred-language') === 'zh';
+    linuxCopyStatus.dataset.copied = String(copied);
+    if (copied) {
+      copyLinuxInstallBtn.querySelector('span').textContent = zh ? '已复制' : 'Copied';
+      linuxCopyStatus.textContent = zh ? '已复制，可直接粘贴到主机终端。' : 'Copied. Paste it into the host terminal.';
+    } else {
+      copyLinuxInstallBtn.querySelector('span').textContent = zh ? '复制命令' : 'Copy command';
+      linuxInstallCommand.focus();
+      linuxInstallCommand.select();
+      linuxCopyStatus.textContent = zh ? '自动复制受限，命令已全选。请按 Ctrl/Cmd+C 或长按复制。' : 'Automatic copy is blocked. Press Ctrl/Cmd+C or long-press to copy the selected command.';
     }
   });
 
@@ -1419,7 +1463,7 @@ const customCodePlaceholder = [
               <div class="flex flex-col gap-1 flex-shrink-0" style="flex-shrink: 1; min-width: 0; max-width: 250px;">
                 <span class="system-name text-sm font-semibold text-[#262626] dark:text-[#f5f5f5]" style="word-break: break-word; overflow-wrap: break-word; display: block;">${escapeHtml(system.name || '')}</span>
                 <!-- Other Info (Virtualization Type, OS) -->
-                <div class="flex flex-wrap gap-2 text-xs text-[#404040] dark:text-[#737373] min-h-[16px]">
+                <div class="system-secondary-info flex flex-wrap gap-2 text-xs text-[#404040] dark:text-[#737373] min-h-[16px]" data-empty="${!system.virtualization_type && !system.os}">
                   ${system.virtualization_type ? `<span class="system-virtualization-type">${escapeHtml(system.virtualization_type)}</span>` : ''}
                   ${system.os ? `<span class="system-os">• ${escapeHtml(system.os)}</span>` : ''}
                   ${!system.virtualization_type && !system.os ? '<span class="invisible">-</span>' : ''}
@@ -1574,6 +1618,7 @@ const customCodePlaceholder = [
     // It's the second child div inside the flex-col container
     const nameContainer = itemElement.querySelector('.flex.flex-col.gap-1.flex-shrink-0');
     const infoContainer = nameContainer?.querySelector('.flex.flex-wrap.gap-2.text-xs');
+    if (infoContainer) infoContainer.dataset.empty = String(!item.virtualization_type && !item.os);
     if (!infoContainer) {
       // If container doesn't exist, we can't update - this shouldn't happen
     } else {
@@ -2365,40 +2410,38 @@ const customCodePlaceholder = [
   }
 
   // Setup event handlers for system items (copy buttons, edit, delete)
-  function setupSystemEventHandlers(container) {
-    // Copy to clipboard helper function with fallback
-    async function copyToClipboard(text) {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        try {
-          await navigator.clipboard.writeText(text);
-          return true;
-        } catch (err) {
-          // Clipboard API failed, trying fallback
-        }
+  // Shared with the Linux dialog, not scoped inside the row event binder.
+  async function copyToClipboard(text, field = null) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
       }
-      
-      try {
-        const textArea = document.createElement('textarea');
+    } catch (_) { /* HTTP/permission restrictions: try selection-based copy. */ }
+    const previousFocus = document.activeElement;
+    const textArea = field || document.createElement('textarea');
+    try {
+      if (!field) {
         textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
+        textArea.readOnly = true;
+        textArea.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0';
         document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        
-        if (successful) {
-          return true;
-        } else {
-          throw new Error('execCommand copy failed');
-        }
-      } catch (err) {
-        return false;
+      }
+      textArea.focus();
+      textArea.select();
+      textArea.setSelectionRange(0, textArea.value.length);
+      return document.execCommand('copy');
+    } catch (_) {
+      return false;
+    } finally {
+      if (!field) {
+        textArea.remove();
+        previousFocus?.focus({ preventScroll: true });
       }
     }
+  }
+
+  function setupSystemEventHandlers(container) {
 
     // Setup copy IP buttons
     container.querySelectorAll('.copy-ip-btn').forEach(btn => {
@@ -2501,7 +2544,7 @@ const customCodePlaceholder = [
         if (secret) {
           command += `; \`$env:Secret=${powershellQuote(secret)}`;
         }
-        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.1/install.ps1 | iex }"`;
+        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.2/install.ps1 | iex }"`;
         
         const windowsIcon = newBtn.querySelector('.windows-icon');
         const checkIcon = newBtn.querySelector('.check-icon');
@@ -4602,6 +4645,8 @@ const customCodePlaceholder = [
     'trafficResetDayHint': { en: "1–28, using the monitored machine's timezone", zh: '1–28 日，以被监控机器的时区为准' },
     'vnstatFallbackHint': { en: 'If vnStat cannot be installed, Pulse automatically falls back to interface totals.', zh: '如果 vnStat 无法安装，Pulse 会自动回退到原有网卡累计方式。' },
     'copyInstallCommand': { en: 'Copy command', zh: '复制命令' },
+    'installCommandLabel': { en: 'Installation command', zh: '安装命令' },
+    'installCommandHint': { en: 'Run on the monitored host. Choose root or sudo to match your terminal user. Contains a secret; do not share.', zh: '在被监控主机执行，按登录身份选择 root 或 sudo。命令含密钥，请勿分享。' },
   };
 
   function updateAdminTranslations() {
@@ -4658,3 +4703,23 @@ const customCodePlaceholder = [
     updateAdminTranslations();
   }
 </script>
+
+<style is:global>
+  .system-secondary-info[data-empty="true"] { display: none; }
+  #linux-install-modal .linux-install-panel { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  #linux-install-modal .linux-install-options:not(.hidden) { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+  #linux-install-modal .linux-install-options > div { min-width: 0; }
+  #linux-install-modal .linux-install-options input[type="number"] { width: 64px; flex-shrink: 0; }
+  #linux-install-modal .linux-command-frame { border: 1px solid #e5e7eb; border-radius: 12px; background: #f6f7f8; overflow: hidden; }
+  #linux-install-modal .linux-command-frame:focus-within { border-color: #10b981; box-shadow: 0 0 0 2px #10b98115; }
+  #linux-install-modal .linux-command-text { display: block; width: 100%; min-width: 0; margin: 0; padding: 12px 16px 16px; border: 0; background: transparent; resize: vertical; outline: none; color: #374151; font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; white-space: pre-wrap; tab-size: 2; }
+  #linux-install-modal .linux-copy-status { min-height: 18px; margin-top: 8px; font-size: 12px; line-height: 1.5; color: #737373; }
+  #linux-install-modal .linux-copy-status[data-copied="true"] { color: #047857; }
+  #linux-install-modal button:disabled { opacity: .65; cursor: wait; }
+  .dark #linux-install-modal .linux-command-frame { background: #22262b; border-color: #383d44; }
+  .dark #linux-install-modal .linux-command-text { color: #d4d8de; }
+  .dark #linux-install-modal .linux-install-options input,
+  .dark #linux-install-modal #cancel-linux-install-btn { background: #222; border-color: #404040; color: #d4d4d4; }
+  .dark #linux-install-modal .linux-copy-status[data-copied="true"] { color: #6ee7b7; }
+  @media (max-width: 420px) { #linux-install-modal .linux-install-options:not(.hidden) { grid-template-columns: minmax(0, 1fr); gap: 12px; } }
+</style>

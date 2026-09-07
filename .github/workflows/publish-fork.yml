@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag (for example v1.4.0-vnstat.1)
+        description: Existing release tag (for example v1.4.0-vnstat.2)
         required: true
         type: string
 
@@ -60,6 +60,20 @@ jobs:
           done
           cp client/install.sh client/install.ps1 docker-compose.yaml release/
           (cd release && sha256sum * > SHA256SUMS)
+      - name: Browser regression tests
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pulse-browser" playwright@1.62.1
+          "$RUNNER_TEMP/pulse-browser/node_modules/.bin/playwright" install --with-deps chromium
+          export PULSE_PLAYWRIGHT_MODULE="$RUNNER_TEMP/pulse-browser/node_modules/playwright"
+          PORT=18080 DB_PATH="$RUNNER_TEMP/pulse-browser/test.db" ./release/pulse-server-standalone-linux-amd64 > "$RUNNER_TEMP/pulse-browser/server.log" 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"; cat "$RUNNER_TEMP/pulse-browser/server.log"' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18080/healthz; then break; fi
+            sleep 1
+          done
+          node server/web/tests/admin-install.cjs
+          node server/web/tests/dashboard-motion.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: release-binaries
@@ -133,9 +147,11 @@ jobs:
             - Optional Linux vnStat billing cycles and per-machine monthly allowances.
             - Compact aligned meters with usage/allowance inside, and gentle one-time entry animation.
             - Matching clients and installation scripts are pinned to this release, not upstream binaries.
-            - Tests: Go tests/vet (server race tests), frontend build, and published amd64 container smoke test.
+            - Fix Linux command copying, with selectable preview, root/sudo choice and HTTP fallback.
+            - Align newly added host names with the edit icon when no OS information exists.
+            - Tests: Go tests/vet (server race tests), frontend build, browser clipboard/layout/motion regression, and published amd64 container smoke test.
 
-            Image (linux/amd64 and linux/arm64): `ghcr.io/aoomee/pulse:1.4.0-vnstat.1`
+            Image (linux/amd64 and linux/arm64): `ghcr.io/aoomee/pulse:1.4.0-vnstat.2`
             Use the attached `docker-compose.yaml`, then run `docker compose up -d` and open port 8008.
             Persist `/app/data`; back up existing data before upgrading. This is a prerelease for deployment testing.
             vnStat starts counting when installed; previous usage cannot be recovered. Monthly usage is RX + TX.
