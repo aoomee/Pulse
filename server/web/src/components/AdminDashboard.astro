@@ -1104,7 +1104,7 @@ const customCodePlaceholder = [
     const system = pendingLinuxInstallSystem;
     if (!system || !linuxInstallCommand) return;
     const privilege = document.getElementById('linux-install-user')?.value === 'sudo' ? 'sudo ' : '';
-    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.7/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
+    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.8/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
     if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
     if (linuxVnstatToggle?.checked) {
       const iface = String(document.getElementById('linux-vnstat-interface')?.value || '').trim();
@@ -2579,7 +2579,7 @@ const customCodePlaceholder = [
         if (secret) {
           command += `; \`$env:Secret=${powershellQuote(secret)}`;
         }
-        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.7/install.ps1 | iex }"`;
+        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.8/install.ps1 | iex }"`;
         
         const windowsIcon = newBtn.querySelector('.windows-icon');
         const checkIcon = newBtn.querySelector('.check-icon');

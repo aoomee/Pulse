@@ -30,6 +30,23 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
   assert(!posts.some(p=>p.path.endsWith('/test')),'preview sent external test');
   await page.click('#tg-test');await page.getByText('测试消息已发送。',{exact:true}).waitFor();assert.equal(posts.at(-1).path,'/api/telegram/test');
   await page.locator('#tg-template-section summary').click();await page.locator('summary').filter({hasText:'通知范围'}).click();
+  await page.locator('#tg-template-section summary').click();
+  for(const language of ['zh','en']) for(const width of [1100,375,320]) {
+   await page.setViewportSize({width,height:1100});
+   await page.evaluate(lang=>{localStorage.setItem('preferred-language',lang);window.dispatchEvent(new Event('languagechange'));},language);
+   const geometry=await page.locator('#telegram-settings').evaluate(dialog=>{
+    const ids=['tg-token','tg-chat','tg-delay-value','tg-delay-unit','tg-event','tg-preview','tg-default','tg-test','tg-save'];
+    const controls=ids.map(id=>{const el=document.getElementById(id),r=el.getBoundingClientRect(),s=getComputedStyle(el);return {id,height:r.height,radius:s.borderRadius,overflow:el.scrollWidth>el.clientWidth+1};});
+    const row=[...dialog.querySelectorAll('.tg-template-actions > *')].map(el=>{const r=el.getBoundingClientRect();return {top:r.top,width:r.width};});
+    return {controls,row,fits:dialog.scrollWidth<=dialog.clientWidth+1};
+   });
+   assert(geometry.controls.every(c=>c.height===44&&c.radius==='14px'&&!c.overflow),`${language}/${width}: inconsistent controls ${JSON.stringify(geometry.controls)}`);
+   assert(geometry.row.every(r=>Math.abs(r.top-geometry.row[0].top)<1&&Math.abs(r.width-geometry.row[0].width)<1),`${language}/${width}: action row misaligned`);
+   assert(geometry.fits);
+   if(process.env.PULSE_SCREENSHOT_DIR)await page.locator('#telegram-settings').screenshot({path:`${process.env.PULSE_SCREENSHOT_DIR}/telegram-rounded-${language}-${width}.png`});
+  }
+  await page.evaluate(()=>{localStorage.setItem('preferred-language','zh');window.dispatchEvent(new Event('languagechange'));});
+  await page.locator('#tg-template-section summary').click();
   for(const width of [1100,375,320]){
    await page.setViewportSize({width,height:900});
    const fit=await page.locator('#telegram-settings').evaluate(el=>({fit:el.scrollWidth<=el.clientWidth+1,right:el.getBoundingClientRect().right}));assert(fit.fit&&fit.right<=width,`dialog overflows at ${width}`);
