@@ -1,5 +1,6 @@
 ---
 import Icon from './Icon.astro';
+import TelegramSettings from './TelegramSettings.astro';
 
 const { apiBase: apiBaseProp } = Astro.props ?? {};
 const apiBase = apiBaseProp ?? '';
@@ -40,7 +41,8 @@ const customCodePlaceholder = [
   <div class="glass-card mb-4 sm:mb-6 rounded-xl border border-[#404040]/50 dark:border-[#404040]/50 border-[#d4d4d4]/50 bg-[#1c1c1c] dark:bg-[#1c1c1c] bg-white p-3 sm:p-4 md:p-6">
     <div class="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <h2 id="system-list-title" class="text-lg sm:text-xl font-semibold text-[#262626] dark:text-[#f5f5f5]" data-translate="systemList">Service List</h2>
-      <div class="flex items-center gap-1.5 sm:gap-2">
+      <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <TelegramSettings apiBase={apiBase}/>
         <button id="add-system-btn" class="rounded-lg p-1.5 sm:p-2 text-[#525252] dark:text-[#a3a3a3] transition-colors hover:bg-[#282828] dark:hover:bg-[#282828] hover:bg-[#f0f0f0] hover:text-emerald-400 dark:hover:text-emerald-400 hover:text-emerald-600" title="Add Service" aria-label="Add Service" data-title-en="Add Service" data-title-zh="添加服务">
           <Icon name="plus" size={16} class="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
         </button>
@@ -1102,7 +1104,7 @@ const customCodePlaceholder = [
     const system = pendingLinuxInstallSystem;
     if (!system || !linuxInstallCommand) return;
     const privilege = document.getElementById('linux-install-user')?.value === 'sudo' ? 'sudo ' : '';
-    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.6/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
+    let command = `curl -fsSL https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.7/install.sh | ${privilege}bash -s -- --id ${shellQuote(system.id)} --server ${shellQuote(window.location.origin)}`;
     if (system.secret) command += ` --secret ${shellQuote(system.secret)}`;
     if (linuxVnstatToggle?.checked) {
       const iface = String(document.getElementById('linux-vnstat-interface')?.value || '').trim();
@@ -2577,7 +2579,7 @@ const customCodePlaceholder = [
         if (secret) {
           command += `; \`$env:Secret=${powershellQuote(secret)}`;
         }
-        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.6/install.ps1 | iex }"`;
+        command += `; irm https://github.com/aoomee/Pulse/releases/download/v1.4.0-vnstat.7/install.ps1 | iex }"`;
         
         const windowsIcon = newBtn.querySelector('.windows-icon');
         const checkIcon = newBtn.querySelector('.check-icon');

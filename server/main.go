@@ -1064,6 +1064,12 @@ func main() {
 	// the old "invalid freelist page" class of corruption bugs.
 	rootCtx, cancelRoot := context.WithCancel(context.Background())
 	defer cancelRoot()
+	telegram, telegramErr := NewTelegramManager(store, clientRegistry)
+	if telegramErr != nil {
+		log.Printf("⚠️ Telegram configuration unavailable; notifications disabled")
+	} else {
+		telegram.Start(rootCtx)
+	}
 
 	// Signal handling: translate the first SIGTERM/SIGINT into a context
 	// cancellation, let main() perform the ordered shutdown below. A second
@@ -1082,6 +1088,13 @@ func main() {
 
 	// Setup HTTP routes
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/telegram/", func(w http.ResponseWriter, r *http.Request) {
+		if telegram == nil {
+			http.Error(w, "Notification configuration unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		telegram.Handler(w, r)
+	})
 	mux.HandleFunc("/healthz", handleHealth)
 	mux.HandleFunc("/api/events", func(w http.ResponseWriter, r *http.Request) {
 		handleSSE(store, broker, w, r)
@@ -1500,6 +1513,9 @@ func main() {
 	// close the bbolt DB. Closing bbolt flushes in-flight writes and releases
 	// the file lock.
 	storeClosedOK := false
+	if telegram != nil {
+		telegram.Wait()
+	}
 	if err := store.Close(); err != nil {
 		log.Printf("⚠️  store close returned: %v", err)
 	} else {

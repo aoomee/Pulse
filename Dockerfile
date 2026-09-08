@@ -33,7 +33,7 @@ RUN npm run build
 FROM alpine:3.19
 
 # Install nginx and supervisor
-RUN apk add --no-cache nginx supervisor && \
+RUN apk add --no-cache nginx supervisor ca-certificates && \
     mkdir -p /run/nginx /var/log/supervisor /app/data
 
 # Copy backend binary
