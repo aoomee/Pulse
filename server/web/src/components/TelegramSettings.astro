@@ -28,8 +28,7 @@ const { apiBase = '' } = Astro.props;
 </form>
 </dialog>
 <style>
-  dialog { --tg-bg:#fff; --tg-ink:#262626; --tg-muted:#737373; --tg-line:#e8e8e8; --tg-soft:#f6f7f7; --tg-accent:#059669; width:min(600px,calc(100% - 32px)); max-height:calc(100dvh - 40px); padding:0; margin:auto; border:1px solid var(--tg-line); border-radius:22px; background:var(--tg-bg); color:var(--tg-ink); box-shadow:0 24px 80px #0002; }
-  :global(.dark) dialog { --tg-bg:#1c1c1c; --tg-ink:#f5f5f5; --tg-muted:#a3a3a3; --tg-line:#383838; --tg-soft:#252727; --tg-accent:#10b981; }
+  dialog { --tg-bg:var(--admin-bg); --tg-ink:var(--admin-ink); --tg-muted:var(--admin-muted); --tg-line:var(--admin-line); --tg-soft:var(--admin-soft); --tg-accent:var(--admin-accent); width:min(600px,calc(100% - 32px)); max-height:calc(100dvh - 40px); padding:0; margin:auto; border:1px solid var(--tg-line); border-radius:var(--admin-dialog-radius); background:var(--tg-bg); color:var(--tg-ink); box-shadow:0 24px 80px #0002; }
   dialog::backdrop { background:#1116; backdrop-filter:blur(4px); } form { padding:28px; } header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
   h2 { font-size:24px; font-weight:650; letter-spacing:-.6px; } p { font-size:13px; color:var(--tg-muted); line-height:1.6; margin-top:5px; }
   button,input,select,textarea { font:inherit; } button { cursor:pointer; } button:disabled { opacity:.5; cursor:wait; } .tg-icon { display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:var(--tg-soft); }
@@ -37,7 +36,7 @@ const { apiBase = '' } = Astro.props;
   #tg-enabled { appearance:none; width:40px; height:24px; border-radius:20px; background:#bbb; position:relative; cursor:pointer; transition:background .16s; }
   #tg-enabled::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:white; transition:transform .16s; } #tg-enabled:checked { background:var(--tg-accent); } #tg-enabled:checked::after { transform:translateX(16px); }
   .tg-fields { display:grid; grid-template-columns:1.5fr 1fr; gap:14px; } label { font-size:14px; } .tg-fields label { min-width:0; } .tg-fields input,textarea { display:block; width:100%; margin-top:8px; }
-  form { --tg-control-height:44px; --tg-control-radius:14px; }
+  form { --tg-control-height:44px; --tg-control-radius:var(--admin-control-radius); }
   input:not([type=checkbox]),select,textarea { background:var(--tg-soft); border:1px solid var(--tg-line); border-radius:var(--tg-control-radius); padding:10px 12px; min-width:0; color:var(--tg-ink); }
   input:not([type=checkbox]),select,.tg-template-actions button,footer button { box-sizing:border-box; height:var(--tg-control-height); border-radius:var(--tg-control-radius); font-size:14px; line-height:20px; }
   :is(input,select,textarea,button,summary):focus-visible { outline:2px solid var(--tg-accent); outline-offset:3px; } .tg-check { display:flex; align-items:center; gap:8px; margin-top:12px; color:var(--tg-muted); } input[type=checkbox] { accent-color:var(--tg-accent); }

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag (for example v1.4.0-vnstat.8)
+        description: Existing release tag (for example v1.4.0-vnstat.9)
         required: true
         type: string
 
@@ -76,6 +76,7 @@ jobs:
           node server/web/tests/dashboard-motion.cjs
           node server/web/tests/page-entry.cjs
           node server/web/tests/telegram-settings.cjs
+          node server/web/tests/admin-modal-style.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: release-binaries
@@ -149,7 +150,9 @@ jobs:
           files: release/*
           body: |
             ## vnStat monthly traffic + refined dashboard
-            - Telegram settings controls use consistent 44px heights and 14px corners, with equal-width preview actions and mobile layout checks.
+            - Server details open in a compact centered dialog with keyboard/backdrop dismissal, live metrics, and the TCPing chart; the list no longer expands downward.
+            - Unified rounded neutral panels, 44px admin controls with 18px corners, green actions/toggles, and circular close buttons across admin settings.
+            - Homepage meters use solid original colors on clearer gray tracks, consistent 26px heights, and full pill corners with centered usage labels.
             - Telegram offline/recovery alerts with a configurable 15-second to 24-hour delay and per-host mute.
             - JavaScript notification templates, network-free previews, and explicit test sends; Komari-style sendMessage/sendEvent entry points.
             - Bounded execution and retries, persisted alert state, admin-only settings, and masked saved tokens. Notifications are disabled by default.
@@ -166,7 +169,7 @@ jobs:
             - Align newly added host names with the edit icon when no OS information exists.
             - Tests: Go tests/vet (server race tests), frontend build, browser clipboard/layout/motion regression, and published amd64 container smoke test.
 
-            Image (linux/amd64 and linux/arm64): `ghcr.io/aoomee/pulse:1.4.0-vnstat.8`
+            Image (linux/amd64 and linux/arm64): `ghcr.io/aoomee/pulse:1.4.0-vnstat.9`
             Use the attached `docker-compose.yaml`, then run `docker compose up -d` (or legacy `docker-compose up -d`) and open port 8008.
             Persist `/app/data`; back up existing data before upgrading. This is a prerelease for deployment testing.
             vnStat starts counting when installed; prior usage can be manually calibrated against the provider. Monthly usage defaults to RX + TX; select the provider's billing direction in Edit service.

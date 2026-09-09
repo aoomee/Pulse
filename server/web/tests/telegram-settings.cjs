@@ -40,7 +40,7 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
     const row=[...dialog.querySelectorAll('.tg-template-actions > *')].map(el=>{const r=el.getBoundingClientRect();return {top:r.top,width:r.width};});
     return {controls,row,fits:dialog.scrollWidth<=dialog.clientWidth+1};
    });
-   assert(geometry.controls.every(c=>c.height===44&&c.radius==='14px'&&!c.overflow),`${language}/${width}: inconsistent controls ${JSON.stringify(geometry.controls)}`);
+   assert(geometry.controls.every(c=>c.height===44&&c.radius==='18px'&&!c.overflow),`${language}/${width}: inconsistent controls ${JSON.stringify(geometry.controls)}`);
    assert(geometry.row.every(r=>Math.abs(r.top-geometry.row[0].top)<1&&Math.abs(r.width-geometry.row[0].width)<1),`${language}/${width}: action row misaligned`);
    assert(geometry.fits);
    if(process.env.PULSE_SCREENSHOT_DIR)await page.locator('#telegram-settings').screenshot({path:`${process.env.PULSE_SCREENSHOT_DIR}/telegram-rounded-${language}-${width}.png`});

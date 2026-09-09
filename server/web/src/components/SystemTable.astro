@@ -902,7 +902,7 @@ const apiBase = apiBaseProp ?? '';
     const safeMainTrafficTitle = escapeHtmlAttr(getMainTrafficTitle(item, displayedTraffic));
     return `
     <div class="system-row" data-system-id="${safeId}">
-      <div class="group system-table-grid system-metric-row transition-colors hover:bg-[#f5f5f5] dark:hover:bg-[#222]/50 cursor-pointer" data-system-id="${safeId}">
+      <div class="group system-table-grid system-metric-row transition-colors hover:bg-[#f5f5f5] dark:hover:bg-[#222]/50 cursor-pointer" data-system-id="${safeId}" tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="false">
         <div class="system-identity relative flex items-center justify-center gap-1.5 min-h-[20px] text-center" data-mobile-label="${columnLabels[0]}">
           <span class="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full ${isOffline ? 'bg-red-400' : 'bg-emerald-400'} shrink-0"></span>
           <span class="system-name text-[10px] sm:text-xs font-medium text-[#262626] dark:text-[#f5f5f5]" title="${safeNameAttr}">${safeName}</span>
@@ -930,7 +930,11 @@ const apiBase = apiBaseProp ?? '';
           ${renderMainTraffic(displayedTraffic)}
         </div>
     </div>
-      <!-- Expandable details section -->
+      <dialog class="server-details-dialog" aria-labelledby="server-details-title-${safeId}">
+        <header class="server-details-header">
+          <h2 id="server-details-title-${safeId}"><span data-dialog-status class="server-details-status ${isOffline ? 'is-offline' : ''}"></span><span data-dialog-name>${safeName}</span></h2>
+          <button type="button" data-close-details aria-label="${getCurrentLanguage() === 'zh' ? '关闭详情' : 'Close details'}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+        </header>
       <div class="system-details hidden border-t border-[#404040]/50 dark:border-[#404040]/50 border-[#e5e5e5] bg-[#1a1a1a] dark:bg-[#1a1a1a] bg-[#f8f8f8] overflow-hidden" data-details-id="${safeId}" style="width: 100%;">
         <div class="details-content px-3 sm:px-4 md:px-6 py-2 sm:py-3">
           <div class="details-summary">
@@ -1153,10 +1157,11 @@ const apiBase = apiBaseProp ?? '';
   </div>
             <canvas data-tcping-chart="${safeId}" style="width: 100%; height: 200px; min-height: 200px;" class="opacity-0 transition-opacity duration-300" data-tcping-canvas="${safeId}"></canvas>
 </div>
+      </div>
       </div>` : ''}
     </div>
+    </dialog>
   </div>
-</div>
   `;
   };
 
@@ -1370,6 +1375,11 @@ const apiBase = apiBaseProp ?? '';
   // Update a single row in the DOM - only update changed cells
   function updateRow(rowElement, item, previousItem) {
     if (!rowElement) return;
+    const dialogHeader = rowElement.closest('.system-row')?.querySelector('.server-details-header');
+    if (dialogHeader) {
+      dialogHeader.querySelector('[data-dialog-name]').textContent = item.name || 'unknown';
+      dialogHeader.querySelector('[data-dialog-status]').classList.toggle('is-offline', !!item.alert);
+    }
     
     // Get cached old item for comparison (normalized)
     // Use previousItem if provided, otherwise fall back to currentData
@@ -3267,7 +3277,7 @@ const apiBase = apiBaseProp ?? '';
       }
       
       // Don't expand/collapse if clicking inside the details section
-      if (e.target.closest('.system-details')) {
+      if (e.target.closest('.server-details-dialog')) {
         return;
       }
       
@@ -3288,122 +3298,42 @@ const apiBase = apiBaseProp ?? '';
       const systemId = rowElement.dataset.systemId;
       
       if (detailsSection) {
-        // Toggle visibility with animation
-        const isExpanding = detailsSection.classList.contains('hidden');
-        
-        if (isExpanding) {
-          // IMPORTANT: Close all other expanded sections first to prevent CPU overload
-          // Only keep one section expanded at a time
-          const allExpandedSections = container.querySelectorAll('.system-details:not(.hidden)');
-          allExpandedSections.forEach(section => {
-            // Skip the current section we're about to expand
-            const sectionSystemRow = section.closest('.system-row');
-            if (sectionSystemRow && sectionSystemRow.querySelector('[data-system-id]') !== rowElement) {
-              // Get the system ID for cleanup
-              const otherRowElement = sectionSystemRow.querySelector('[data-system-id]');
-              const otherSystemId = otherRowElement ? otherRowElement.dataset.systemId : null;
-              
-              // Cleanup tcping chart for this system
-              if (otherSystemId) {
-                cleanupTCPingChart(otherSystemId);
-              }
-              
-              // Collapse this section
-              section.style.maxHeight = section.scrollHeight + 'px';
-              section.style.opacity = '1';
-              section.offsetHeight; // Trigger reflow
-              
-              section.style.transition = 'max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in';
-              section.style.maxHeight = '0';
-              section.style.opacity = '0';
-              
-              setTimeout(() => {
-                section.classList.add('hidden');
-                section.style.maxHeight = '';
-                section.style.opacity = '';
-                section.style.transition = '';
-              }, 250);
-              
-              // Update aria-expanded attribute
-              if (otherRowElement) {
-                otherRowElement.setAttribute('aria-expanded', 'false');
-              }
-            }
-          });
-          
-          // Expanding - show and animate in
-          detailsSection.classList.remove('hidden');
-          detailsSection.style.maxHeight = '0';
-          detailsSection.style.opacity = '0';
-          
-          // Trigger reflow
-          detailsSection.offsetHeight;
-          
-          // Initialize TCPing tabs and start animation in parallel for better UX
-          // Start tabs initialization (don't wait)
-          const tabsPromise = initializeTCPingTabs(systemId);
-          
-          // Start animation immediately to avoid perceived lag
-          detailsSection.style.transition = 'max-height 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease-out';
-          // Use a reasonable estimated height, it will adjust as content loads
-          detailsSection.style.maxHeight = '800px'; // Temporary max height
-          detailsSection.style.opacity = '1';
-          
-          // Wait for tabs to finish loading, then adjust to actual height
-          tabsPromise.then(() => {
-            // Give DOM a moment to update
-            requestAnimationFrame(() => {
-              // Update to actual scroll height
-              detailsSection.style.maxHeight = detailsSection.scrollHeight + 'px';
-              
-              // Clean up after animation completes
-              setTimeout(() => {
-                detailsSection.style.maxHeight = '';
-                detailsSection.style.transition = '';
-              }, 300);
-            });
-          });
-          
-          // Initialize tcping chart in the same frame the row starts
-          // expanding. Using requestAnimationFrame instead of setTimeout(50)
-          // means the chart fetch begins ~50 ms earlier on average — which
-          // is visible on slow networks where the round-trip dominates.
-          // The next-frame deferral is kept so the expand animation gets
-          // its first paint before we kick off any heavy work.
-          requestAnimationFrame(() => initializeTCPingChart(systemId));
-          
-          // Update translations when expanding
-          setTimeout(() => updateTranslations(), 0);
-          
-          rowElement.setAttribute('aria-expanded', 'true');
-        } else {
-          // Collapsing - animate out then hide
-          // Cleanup tcping chart for this system
-          cleanupTCPingChart(systemId);
-          
-          detailsSection.style.maxHeight = detailsSection.scrollHeight + 'px';
-          detailsSection.style.opacity = '1';
-          
-          // Trigger reflow
-          detailsSection.offsetHeight;
-          
-          // Animate to zero
-          detailsSection.style.transition = 'max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in';
-          detailsSection.style.maxHeight = '0';
-          detailsSection.style.opacity = '0';
-          
-          // Hide after animation
-          setTimeout(() => {
+        const dialog = systemRow.querySelector('.server-details-dialog');
+        if (!dialog) return;
+        if (dialog.open) { dialog.close(); return; }
+        document.querySelectorAll('.server-details-dialog[open]').forEach(other => other.close());
+        detailsSection.classList.remove('hidden');
+        rowElement.setAttribute('aria-expanded', 'true');
+        dialog.showModal();
+        if (!dialog.dataset.closeSetup) {
+          dialog.dataset.closeSetup = 'true';
+          dialog.addEventListener('close', () => {
+            if (dialog.open) return;
+            cleanupTCPingChart(systemId);
             detailsSection.classList.add('hidden');
-            detailsSection.style.maxHeight = '';
-            detailsSection.style.opacity = '';
-            detailsSection.style.transition = '';
-          }, 250);
-          
-          rowElement.setAttribute('aria-expanded', 'false');
+            rowElement.setAttribute('aria-expanded', 'false');
+            if (rowElement.isConnected) rowElement.focus({ preventScroll: true });
+          });
+          dialog.querySelector('[data-close-details]').addEventListener('click', () => dialog.close());
+          dialog.addEventListener('click', event => {
+            if (event.target !== dialog) return;
+            const bounds = dialog.getBoundingClientRect();
+            if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) dialog.close();
+          });
         }
+        void initializeTCPingTabs(systemId).then(() => {
+          if (dialog.open) initializeTCPingChart(systemId);
+        });
+        updateTranslations();
       }
     };
+
+    container.addEventListener('keydown', e => {
+      if (e.target.matches('.system-metric-row') && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        handleRowToggle(e);
+      }
+    });
     
     // Use a simple approach: handle both touchstart and click, but prevent double-trigger
     let lastTouchTime = 0;
@@ -3666,6 +3596,7 @@ const apiBase = apiBaseProp ?? '';
       if (rowElement) {
         const systemRow = rowElement.closest('.system-row');
         if (systemRow) {
+          systemRow.querySelector('.server-details-dialog[open]')?.close();
           systemRow.remove();
         } else {
           rowElement.remove();
@@ -3745,11 +3676,14 @@ const apiBase = apiBaseProp ?? '';
         }
       });
       
-      // Re-append in correct order
-      items.forEach(item => {
+      // Keep the open dialog connected to the top layer while other rows move.
+      const activeRow = body.querySelector('.server-details-dialog[open]')?.closest('.system-row');
+      let nextRow = null;
+      [...items].reverse().forEach(item => {
         const row = rowMap.get(item.id);
         if (row && row.parentNode) {
-          body.appendChild(row); // appendChild moves existing element
+          if (row !== activeRow && row.nextElementSibling !== nextRow) body.insertBefore(row, nextRow);
+          nextRow = row;
         }
       });
     }
@@ -4218,12 +4152,49 @@ const apiBase = apiBaseProp ?? '';
 </script>
 
 <style is:global>
+  html:has(.server-details-dialog[open]) { overflow: hidden; }
+  #monitor-root .server-details-dialog {
+    width: min(900px, calc(100vw - 40px));
+    max-width: none;
+    max-height: calc(100dvh - 40px);
+    margin: auto;
+    padding: 0;
+    border: 1px solid #e2e5e9;
+    border-radius: 26px;
+    background: #fff;
+    color: #262626;
+    box-shadow: 0 24px 80px rgb(0 0 0 / 16%);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  #monitor-root .server-details-dialog[open] { animation: details-enter 160ms ease-out; }
+  #monitor-root .server-details-dialog::backdrop { background: rgb(20 25 32 / 30%); backdrop-filter: blur(3px); }
+  #monitor-root .server-details-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 22px; border-bottom: 1px solid rgb(128 128 128 / 14%); }
+  #monitor-root .server-details-header h2 { display: flex; align-items: center; gap: 10px; min-width: 0; margin: 0; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+  #monitor-root .server-details-status { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: #10b981; }
+  #monitor-root .server-details-status.is-offline { background: #ef4444; }
+  #monitor-root [data-close-details] { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #f3f4f5; color: #525252; }
+  #monitor-root [data-close-details]:hover { background: #e8eaed; }
+  #monitor-root .system-metric-row:focus-visible, #monitor-root [data-close-details]:focus-visible { outline: 2px solid #059669; outline-offset: -3px; }
+  #monitor-root .server-details-dialog .system-details { background: transparent; border: 0; }
+  #monitor-root .server-details-dialog [data-tcping-chart-container] { padding: 0 22px 20px; }
+  #monitor-root .server-details-dialog [data-tcping-chart-container] > div { border-radius: 20px; }
+  #monitor-root .server-details-dialog [data-tcping-tabs] button { border-radius: 8px; }
+  .dark #monitor-root .server-details-dialog { background: #1c1c1c; border-color: #383838; color: #f5f5f5; }
+  .dark #monitor-root [data-close-details] { background: #303030; color: #ddd; }
+  @keyframes details-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  @media (max-width: 600px) {
+    #monitor-root .server-details-dialog { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); border-radius: 24px; }
+    #monitor-root .server-details-header { padding: 14px 16px; }
+    #monitor-root .server-details-dialog [data-tcping-chart-container] { padding: 0 14px 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) { #monitor-root .server-details-dialog[open] { animation: none; } }
   /* A centered summary, with hardware and network grouped into quiet rows. */
-  #monitor-root .details-content { padding: 24px 20px; }
+  #monitor-root .details-content { padding: 16px 22px; }
   #monitor-root .details-summary {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 20px 28px;
+    gap: 10px;
     width: 100%;
     max-width: 880px;
     margin-inline: auto;
@@ -4234,7 +4205,7 @@ const apiBase = apiBaseProp ?? '';
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
   }
   #monitor-root .details-stat > [data-translate-detail] { color: var(--metric-caption-color); font-weight: 400; font-size: 11px; }
@@ -4242,33 +4213,44 @@ const apiBase = apiBaseProp ?? '';
   #monitor-root .details-stat > [data-traffic-values] { font-size: 12px; line-height: 1.6; font-weight: 500; font-variant-numeric: tabular-nums; }
   #monitor-root .details-stat > [data-detail] { max-width: 100%; overflow-wrap: anywhere; }
   #monitor-root .details-tags { grid-column: 1 / -1; justify-content: center; }
-  #monitor-root .details-cpu { grid-column: 1 / -1; padding-bottom: 18px; border-bottom: 1px solid rgb(128 128 128 / 12%); }
+  #monitor-root .details-cpu { grid-column: 1 / -1; flex-direction: row; justify-content: center; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid rgb(128 128 128 / 12%); }
   #monitor-root .details-resource { grid-column: span 2; }
-  #monitor-root .details-network { grid-column: span 3; padding-top: 18px; border-top: 1px solid rgb(128 128 128 / 12%); }
+  #monitor-root .details-network { grid-column: span 3; }
+  #monitor-root .details-resource,
+  #monitor-root .details-network {
+    justify-content: center;
+    padding: 12px;
+    border: 1px solid #e2e5e9;
+    border-radius: 20px;
+    background: #f6f7f8;
+  }
+  .dark #monitor-root .details-resource,
+  .dark #monitor-root .details-network { background: #25272a; border-color: #3b3e43; }
   #monitor-root .details-network > [data-traffic-values] { flex-wrap: wrap; justify-content: center; max-width: 100%; }
   #monitor-root .details-network > [data-traffic-source-badge],
   #monitor-root .details-network > [data-traffic-limit-badge] { max-width: 100%; overflow-wrap: anywhere; font-size: 10px; letter-spacing: 0; font-weight: 500; }
   @container monitor (max-width: 560px) {
-    #monitor-root .details-content { padding: 20px 16px; }
-    #monitor-root .details-summary { gap: 14px; }
-    #monitor-root .details-resource { grid-column: 1 / -1; flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 8px; }
-    #monitor-root .details-network { grid-column: 1 / -1; padding-top: 14px; }
+    #monitor-root .details-content { padding: 14px 16px; }
+    #monitor-root .details-summary { gap: 10px; }
+    #monitor-root .details-resource { grid-column: 1 / -1; flex-direction: row; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 8px; }
+    #monitor-root .details-network { grid-column: 1 / -1; padding: 10px; }
   }
 
   /* Column width management for table */
   #monitor-root {
     container: monitor / inline-size;
     --metric-track-width: 124px;
-    --metric-track-color: #f0f1f2;
-    --metric-label-color: #404040;
+    --metric-track-height: 26px;
+    --metric-track-color: #e2e4e7;
+    --metric-label-color: #262626;
     --metric-caption-color: #62666b;
-    --metric-used-color: #525252;
+    --metric-used-color: #262626;
     --system-columns: minmax(0, 1.65fr) minmax(0, .95fr) minmax(0, .75fr) repeat(4, minmax(0, 1.4fr));
   }
 
   .dark #monitor-root {
-    --metric-track-color: #2b2e32;
-    --metric-label-color: #e5e5e5;
+    --metric-track-color: #454a51;
+    --metric-label-color: #fff;
     --metric-caption-color: #c2c6cc;
     --metric-used-color: #d4d4d4;
   }
@@ -4333,7 +4315,7 @@ const apiBase = apiBaseProp ?? '';
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 22px;
+    height: var(--metric-track-height);
     width: 100%;
     max-width: var(--metric-track-width);
     min-width: 0;
@@ -4355,21 +4337,22 @@ const apiBase = apiBaseProp ?? '';
     width: 100%;
     min-width: 0;
     max-width: var(--metric-track-width);
-    height: 22px;
-    border-radius: 9px;
+    height: var(--metric-track-height);
+    border-radius: 999px;
     overflow: hidden;
     background: var(--metric-track-color);
   }
 
   #monitor-root .metric-fill {
     border-radius: inherit;
-    opacity: .2;
+    opacity: 1;
     transition: width 400ms ease, background-color 200ms ease;
   }
 
-  .dark #monitor-root .metric-fill {
-    opacity: .32;
-  }
+  /* Keep light labels legible over the same hues in the dark theme. */
+  .dark #monitor-root .metric-fill { opacity: .52; }
+  .dark #monitor-root .metric-amount,
+  .dark #monitor-root .metric-amount-used { color: #fff; }
 
   #monitor-root .metric-amount {
     position: relative;
@@ -4383,7 +4366,7 @@ const apiBase = apiBaseProp ?? '';
     font-size: 10px;
     line-height: 20px;
     white-space: nowrap;
-    color: var(--metric-caption-color);
+    color: var(--metric-label-color);
   }
 
   #monitor-root .metric-amount-used {

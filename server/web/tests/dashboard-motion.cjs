@@ -49,7 +49,7 @@ const fixture = [
           return animate.call(this, frames, options);
         };
         document.addEventListener('animationstart', e => {
-          if (e.target.closest('.system-row')) window.__rowAnimations.push(e.animationName);
+          if (e.target.closest('.system-row') && !e.target.closest('.server-details-dialog')) window.__rowAnimations.push(e.animationName);
         });
         let paints = 0;
         const sample = () => {
@@ -85,10 +85,22 @@ const fixture = [
       assert.equal(initialFades, 0, `${scenario.name}: list must not animate separately from the shared reveal`);
       if (scenario.name === 'normal') {
         const radii = await page.locator('.metric-track, .metric-fill').evaluateAll(nodes => nodes.map(el => getComputedStyle(el).borderRadius));
-        assert(radii.length > 0 && radii.every(radius => radius === '9px'), 'All homepage meters must share the softer radius');
+        assert(radii.length > 0 && radii.every(radius => radius === '999px'), 'All homepage meters must share the full pill radius');
+        const heights = await page.locator('.metric-gauge, .metric-track').evaluateAll(nodes => nodes.map(el => el.getBoundingClientRect().height));
+        assert(heights.every(height => height === 26), 'All meters must share the thicker 26px height');
+        const fills = await page.locator('.metric-fill').evaluateAll(nodes => nodes.map(el => getComputedStyle(el).opacity));
+        assert(fills.every(opacity => opacity === '1'), 'Progress fills must preserve the original solid colors');
+        assert.equal(await page.locator('.metric-track').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(226, 228, 231)', 'Tracks should have a visible gray base');
         if (process.env.PULSE_SCREENSHOT_DIR) await page.locator('#monitor-root').screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/rounded-meters.png` });
         const monthlyRow = page.locator('.system-metric-row[data-system-id="ui-3"]');
+        const listHeight = await page.locator('#systems-body').evaluate(el => el.getBoundingClientRect().height);
         await monthlyRow.click();
+        const dialog = page.locator('.server-details-dialog[open]');
+        assert.equal(await dialog.count(), 1);
+        const cards = await dialog.locator('.details-resource, .details-network').evaluateAll(nodes => nodes.map(el => ({ radius: getComputedStyle(el).borderRadius, border: getComputedStyle(el).borderTopWidth })));
+        assert.equal(cards.length, 5);
+        assert(cards.every(card => card.radius === '20px' && card.border === '1px'), 'All five detail groups should share rounded frames');
+        assert.equal(await page.locator('#systems-body').evaluate(el => el.getBoundingClientRect().height), listHeight, 'Dialog must not expand the list');
         const badge = page.locator('[data-traffic-source-badge]');
         assert.equal(await badge.textContent(), '月流量 · 18日重置');
         await page.evaluate(() => {
@@ -124,11 +136,20 @@ const fixture = [
           }
         }
         await page.setViewportSize({ width: 1100, height: 1000 });
-        await page.locator('#theme-btn').click();
+        await page.evaluate(() => document.documentElement.classList.add('dark'));
         await page.waitForTimeout(400);
         if (process.env.PULSE_SCREENSHOT_DIR) await page.locator('[data-details-id="ui-3"]').screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/details-dark.png` });
-        await page.locator('#theme-btn').click();
+        await page.evaluate(() => document.documentElement.classList.remove('dark'));
+        await dialog.locator('[data-close-details]').click();
+        await page.waitForFunction(() => document.querySelector('[data-details-id="ui-3"]').classList.contains('hidden'));
+        assert(await monthlyRow.evaluate(el => el === document.activeElement), 'Close must restore row focus');
+        await monthlyRow.press('Enter');
+        assert.equal(await dialog.count(), 1, 'Keyboard must open details');
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('.server-details-dialog[open]'));
         await monthlyRow.click();
+        await page.mouse.click(2, 2);
+        await page.waitForFunction(() => !document.querySelector('.server-details-dialog[open]'));
         const namePosition = () => identity.evaluate(cell => {
           const name = cell.querySelector('.system-name').getBoundingClientRect();
           const bounds = cell.getBoundingClientRect();
