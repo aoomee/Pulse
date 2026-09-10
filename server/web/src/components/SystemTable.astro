@@ -2080,6 +2080,7 @@ const apiBase = apiBaseProp ?? '';
       
       // Check if this tab should be active (restore previous selection)
       const isActive = previouslySelectedTarget === target.address;
+      tab.setAttribute('aria-pressed', String(isActive));
       
       // Set initial state based on previous selection
       if (isActive) {
@@ -2098,6 +2099,7 @@ const apiBase = apiBaseProp ?? '';
         const isCurrentlyActive = currentActiveTargetInfo && currentActiveTargetInfo.target === target.address;
         
         if (isCurrentlyActive) {
+          tab.setAttribute('aria-pressed', 'false');
           // Clicking the active tab: deselect it and show all targets
           tab.className = 'px-3 py-1 text-xs font-medium rounded transition-colors bg-transparent text-[#525252] dark:text-[#a3a3a3] hover:bg-[#404040]/30 dark:hover:bg-[#404040]/30';
           
@@ -2110,9 +2112,11 @@ const apiBase = apiBaseProp ?? '';
           // Clicking an inactive tab: select it
           // Update all tabs to inactive state
           tabsContainer.querySelectorAll('button').forEach(btn => {
+            btn.setAttribute('aria-pressed', 'false');
             btn.className = 'px-3 py-1 text-xs font-medium rounded transition-colors bg-transparent text-[#525252] dark:text-[#a3a3a3] hover:bg-[#404040]/30 dark:hover:bg-[#404040]/30';
           });
           // Set clicked tab as active
+          tab.setAttribute('aria-pressed', 'true');
           tab.className = 'px-3 py-1 text-xs font-medium rounded transition-colors bg-[#404040]/50 dark:bg-[#404040]/50 text-[#151515] dark:text-[#f5f5f5]';
         
         // Update current active target for this system
@@ -4159,29 +4163,29 @@ const apiBase = apiBaseProp ?? '';
     max-height: calc(100dvh - 40px);
     margin: auto;
     padding: 0;
-    border: 1px solid #e2e5e9;
+    border: 1px solid var(--ui-line);
     border-radius: 26px;
-    background: #fff;
-    color: #262626;
-    box-shadow: 0 24px 80px rgb(0 0 0 / 16%);
+    background: var(--ui-sheen), var(--ui-dialog);
+    color: var(--ui-ink);
+    box-shadow: var(--ui-dialog-shadow);
+    backdrop-filter: var(--ui-blur);
+    -webkit-backdrop-filter: var(--ui-blur);
     overflow: auto;
     overscroll-behavior: contain;
   }
   #monitor-root .server-details-dialog[open] { animation: details-enter 160ms ease-out; }
-  #monitor-root .server-details-dialog::backdrop { background: rgb(20 25 32 / 30%); backdrop-filter: blur(3px); }
+  #monitor-root .server-details-dialog::backdrop { background: var(--ui-overlay); backdrop-filter: blur(3px); }
   #monitor-root .server-details-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 22px; border-bottom: 1px solid rgb(128 128 128 / 14%); }
   #monitor-root .server-details-header h2 { display: flex; align-items: center; gap: 10px; min-width: 0; margin: 0; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
   #monitor-root .server-details-status { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: #10b981; }
   #monitor-root .server-details-status.is-offline { background: #ef4444; }
-  #monitor-root [data-close-details] { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: #f3f4f5; color: #525252; }
-  #monitor-root [data-close-details]:hover { background: #e8eaed; }
+  #monitor-root [data-close-details] { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--ui-field); color: var(--ui-muted); }
+  #monitor-root [data-close-details]:hover { background: var(--ui-hover); }
   #monitor-root .system-metric-row:focus-visible, #monitor-root [data-close-details]:focus-visible { outline: 2px solid #059669; outline-offset: -3px; }
   #monitor-root .server-details-dialog .system-details { background: transparent; border: 0; }
   #monitor-root .server-details-dialog [data-tcping-chart-container] { padding: 0 22px 20px; }
   #monitor-root .server-details-dialog [data-tcping-chart-container] > div { border-radius: 20px; }
-  #monitor-root .server-details-dialog [data-tcping-tabs] button { border-radius: 8px; }
-  .dark #monitor-root .server-details-dialog { background: #1c1c1c; border-color: #383838; color: #f5f5f5; }
-  .dark #monitor-root [data-close-details] { background: #303030; color: #ddd; }
+  #monitor-root .server-details-dialog [data-tcping-tabs] button { border-radius: 12px; }
   @keyframes details-enter { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
   @media (max-width: 600px) {
     #monitor-root .server-details-dialog { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); border-radius: 24px; }
@@ -4220,12 +4224,10 @@ const apiBase = apiBaseProp ?? '';
   #monitor-root .details-network {
     justify-content: center;
     padding: 12px;
-    border: 1px solid #e2e5e9;
+    border: 1px solid var(--ui-line);
     border-radius: 20px;
-    background: #f6f7f8;
+    background: var(--ui-inner);
   }
-  .dark #monitor-root .details-resource,
-  .dark #monitor-root .details-network { background: #25272a; border-color: #3b3e43; }
   #monitor-root .details-network > [data-traffic-values] { flex-wrap: wrap; justify-content: center; max-width: 100%; }
   #monitor-root .details-network > [data-traffic-source-badge],
   #monitor-root .details-network > [data-traffic-limit-badge] { max-width: 100%; overflow-wrap: anywhere; font-size: 10px; letter-spacing: 0; font-weight: 500; }

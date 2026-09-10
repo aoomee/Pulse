@@ -77,6 +77,8 @@ jobs:
           node server/web/tests/page-entry.cjs
           node server/web/tests/telegram-settings.cjs
           node server/web/tests/admin-modal-style.cjs
+          node server/web/tests/login-style.cjs
+          node server/web/tests/materials.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: release-binaries

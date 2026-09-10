@@ -4763,7 +4763,7 @@ const customCodePlaceholder = [
   .admin-host-identity { flex-shrink: 1; min-width: 96px; max-width: 250px; }
   .admin-host-identity .system-name { display: block; min-height: 28px; line-height: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .admin-host-identity .system-secondary-info { align-items: center; min-height: 28px; line-height: 20px; }
-  .admin-host-row > .edit-btn { display: flex; align-items: center; justify-content: center; align-self: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; background: #f4f4f5; color: #737373; }
+  .admin-host-row > .edit-btn { display: flex; align-items: center; justify-content: center; align-self: center; width: 32px; height: 32px; padding: 0; border-radius: 50%; background: var(--ui-field); color: var(--ui-muted); }
   .admin-host-row .ip-info-container { min-width: 0; flex-shrink: 1; max-width: 280px; gap: 4px; }
   .admin-host-row .ip-info-container > div { display: grid; grid-template-columns: 34px minmax(0, 1fr) 28px; align-items: center; gap: 6px; min-height: 28px; line-height: 20px; }
   .admin-host-row .system-ipv4, .admin-host-row .system-ipv6 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; line-height: 20px; }
@@ -4772,13 +4772,11 @@ const customCodePlaceholder = [
   .admin-host-row .copy-ip-btn {
     display: inline-flex; align-items: center; justify-content: center;
     width: 28px; height: 28px; padding: 0; border-radius: 50%;
-    background: #f4f4f5; color: #737373;
+    background: var(--ui-field); color: var(--ui-muted);
   }
-  .admin-host-row .copy-ip-btn:hover, .admin-host-row > .edit-btn:hover { background: #e9eaec; color: #404040; }
+  .admin-host-row .copy-ip-btn:hover, .admin-host-row > .edit-btn:hover { background: var(--ui-hover); color: var(--ui-ink); }
   .admin-host-row .copy-ip-btn:focus-visible, .admin-host-row > .edit-btn:focus-visible { outline: 2px solid #a3a3a3; outline-offset: 2px; }
   .admin-host-row .copy-ip-btn svg { flex-shrink: 0; }
-  .dark .admin-host-row .copy-ip-btn, .dark .admin-host-row > .edit-btn { background: #2c2c2e; color: #a3a3a3; }
-  .dark .admin-host-row .copy-ip-btn:hover, .dark .admin-host-row > .edit-btn:hover { background: #38383a; color: #e5e5e5; }
   @media (max-width: 800px) { .admin-host-info { column-gap: 12px; } }
   #edit-system-modal [data-modal-content] { max-height: calc(100dvh - 24px); overflow-y: auto; }
   .traffic-settings { min-width: 0; color: #525252; }

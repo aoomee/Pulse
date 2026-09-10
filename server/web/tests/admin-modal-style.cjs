@@ -41,15 +41,15 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
       await dialog.waitFor({ state: 'visible' });
       if (id === 'telegram-settings') await page.locator('#tg-save:enabled').waitFor();
       await page.waitForTimeout(300);
-      for (const width of [1100, 375, 320]) for (const dark of [false, true]) {
+      for (const glass of [false, true]) for (const width of [1100, 375, 320]) for (const dark of [false, true]) {
         await page.setViewportSize({ width, height: 1000 });
         // Include glass-enabled because legacy global styles also affect dialogs.
-        await page.evaluate(dark => {
+        await page.evaluate(({ dark, glass }) => {
           document.documentElement.classList.toggle('dark', dark);
           document.documentElement.classList.toggle('light', !dark);
-          document.documentElement.classList.add('glass-enabled');
-        }, dark);
-        await page.waitForTimeout(350); // Let theme color transitions finish before measuring/capturing.
+          document.documentElement.classList.toggle('glass-enabled', glass);
+        }, { dark, glass });
+        await page.waitForTimeout(550); // Include inherited color transitions before measuring/capturing.
         const result = await dialog.evaluate(el => {
           const panel = el.querySelector('[data-modal-content]') || el;
           const style = getComputedStyle(panel), bounds = panel.getBoundingClientRect();
@@ -57,21 +57,22 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
           const buttons = [...el.querySelectorAll('button[type=submit]')];
           const switches = [...el.querySelectorAll('input.peer:checked + div, #tg-enabled:checked')];
           return {
-            radius: style.borderRadius, bg: style.backgroundColor,
+            radius: style.borderRadius, bg: style.backgroundColor, blur: style.backdropFilter,
             fits: panel.scrollWidth <= panel.clientWidth + 1 && bounds.left >= 0 && bounds.right <= innerWidth,
             fields: fields.map(f => ({ radius: getComputedStyle(f).borderRadius, bg: getComputedStyle(f).backgroundColor })),
-            actions: buttons.map(b => ({ radius: getComputedStyle(b).borderRadius, bg: getComputedStyle(b).backgroundColor, height: b.getBoundingClientRect().height })),
+            actions: buttons.map(b => ({ radius: getComputedStyle(b).borderRadius, image: getComputedStyle(b).backgroundImage, ink: getComputedStyle(b).color, height: b.getBoundingClientRect().height })),
             switches: switches.map(s => getComputedStyle(s).backgroundColor)
           };
         });
         assert.equal(result.radius, width <= 520 ? '24px' : '26px', id);
-        assert.equal(result.bg, dark ? 'rgb(28, 28, 28)' : 'rgb(255, 255, 255)', `${id}: surface`);
+        assert.equal(result.bg, glass ? (dark ? 'rgba(24, 26, 32, 0.7)' : 'rgba(255, 255, 255, 0.64)') : (dark ? 'rgb(28, 28, 28)' : 'rgb(255, 255, 255)'), `${id}: surface`);
+        assert.equal(result.blur.includes('blur(28px)'), glass, `${id}: glass blur`);
         assert(result.fits, `${id}/${width}: horizontal overflow`);
-        assert(result.fields.every(f => f.radius === '18px' && f.bg === (dark ? 'rgb(37, 39, 42)' : 'rgb(246, 247, 248)')), `${id}: field styles ${JSON.stringify(result.fields)}`);
-        assert(result.actions.every(a => a.radius === '18px' && a.height === 44 && a.bg === 'rgb(5, 150, 105)'), `${id}: primary controls ${JSON.stringify(result.actions)}`);
+        assert(result.fields.every(f => f.radius === '18px' && f.bg === (glass ? (dark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(255, 255, 255, 0.18)') : (dark ? 'rgb(37, 39, 42)' : 'rgb(246, 247, 248)'))), `${id}: field styles ${JSON.stringify(result.fields)}`);
+        assert(result.actions.every(a => a.radius === '18px' && a.height === 44 && a.image.startsWith('linear-gradient(') && a.ink === (glass && dark ? 'rgb(245, 245, 245)' : 'rgb(48, 54, 64)')), `${id}: primary controls ${JSON.stringify(result.actions)}`);
         assert(result.switches.every(c => c === 'rgb(5, 150, 105)'), `${id}: switch colors ${result.switches}`);
         if (process.env.PULSE_SCREENSHOT_DIR && width !== 320) {
-          await (width === 1100 ? dialog.locator('[data-modal-content]').or(page.locator(`#${id}:is(dialog)`)) : page.locator('body')).screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/${id}-${width}-${dark ? 'dark' : 'light'}.png` });
+          await (width === 1100 ? dialog.locator('[data-modal-content]').or(page.locator(`#${id}:is(dialog)`)) : page.locator('body')).screenshot({ path: `${process.env.PULSE_SCREENSHOT_DIR}/${id}-${glass ? 'glass' : 'solid'}-${width}-${dark ? 'dark' : 'light'}.png` });
         }
       }
       await page.locator(`#${close}`).click();
@@ -79,6 +80,6 @@ const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
       await page.setViewportSize({ width: 1100, height: 1000 });
     }
     assert.deepEqual(errors, []);
-    console.log('PASS six admin dialogs: shared radii, neutral surfaces, green actions/switches, glass mode, desktop/mobile, light/dark');
+    console.log('PASS six admin dialogs: two materials, shared radii, white actions, semantic switches, desktop/mobile, light/dark');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
