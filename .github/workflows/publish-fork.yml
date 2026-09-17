@@ -73,6 +73,7 @@ jobs:
             sleep 1
           done
           node server/web/tests/admin-install.cjs
+          node server/web/tests/traffic-readiness.cjs
           node server/web/tests/dashboard-motion.cjs
           node server/web/tests/page-entry.cjs
           node server/web/tests/telegram-settings.cjs

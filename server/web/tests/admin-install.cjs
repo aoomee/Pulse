@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const { chromium } = require(process.env.PULSE_PLAYWRIGHT_MODULE || 'playwright');
 const base = process.env.PULSE_TEST_BASE_URL || 'http://127.0.0.1:18080';
-const fixture = [{ id: 'test-host', name: 'VMRACK', secret: "test-only-'quoted'", os: '', virtualization_type: '' }];
+const fixture = [{ id: 'test-host', name: 'VMRACK', secret: "test-only-'quoted'", os: '', virtualization_type: '', traffic_source: 'vnstat', traffic_cycle_start: '2026-09-01', traffic_cycle_end: '2026-10-01' }];
 
 (async () => {
   const browser = await chromium.launch({ headless: true,

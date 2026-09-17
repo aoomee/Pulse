@@ -264,13 +264,19 @@ const customCodePlaceholder = [
             <label><input type="radio" name="traffic_billing_mode" value="sum" checked /><span data-translate="trafficBoth">Upload + download</span></label>
           </div>
           <p class="mt-2 text-xs leading-relaxed text-[#737373] dark:text-[#a3a3a3]" data-translate="trafficBillingHint">Match your provider. Changing the billing method clears the previous calibration.</p>
-          <label for="edit-traffic-calibration" class="mb-1 mt-4 block text-sm font-medium" data-translate="trafficCalibrationLabel">Current-cycle usage calibration (optional)</label>
+          <div class="traffic-calibration-card">
+          <div class="traffic-calibration-heading">
+            <label for="edit-traffic-calibration" class="text-sm font-medium" data-translate="trafficCalibrationLabel">Usage calibration (optional)</label>
+            <span id="traffic-readiness" class="traffic-readiness" role="status" aria-live="polite" data-ready="false"><i aria-hidden="true"></i><span></span></span>
+          </div>
+          <p id="traffic-readiness-hint" class="traffic-readiness-hint"></p>
           <div class="flex gap-2">
-            <input id="edit-traffic-calibration" class="traffic-control min-w-0 flex-1" type="number" name="traffic_calibration" min="0" step="0.01" inputmode="decimal" placeholder="854.71" />
+            <input id="edit-traffic-calibration" class="traffic-control min-w-0 flex-1" type="number" name="traffic_calibration" min="0" step="0.01" inputmode="decimal" aria-describedby="traffic-readiness-hint" disabled />
             <select name="traffic_calibration_unit" class="traffic-control w-20" aria-label="Calibration unit"><option value="GB">GB</option><option value="TB">TB</option></select>
           </div>
           <p class="mt-2 text-xs leading-relaxed text-[#737373] dark:text-[#a3a3a3]" data-translate="trafficCalibrationHint">Enter your provider's current usage, not an extra amount. Saved with Update service; subsequent traffic is added automatically. Expires next cycle. Leave blank to keep the current setting.</p>
           <label id="traffic-clear-wrap" class="mt-2 hidden items-center gap-2 text-xs"><input type="checkbox" name="traffic_clear_calibration" /><span data-translate="trafficClearCalibration">Clear the saved calibration</span></label>
+          </div>
         </fieldset>
 
         <!-- Per-system visibility toggles (admin-only; agents never touch them) -->
@@ -317,7 +323,7 @@ const customCodePlaceholder = [
             type="submit"
             class="flex-1 rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-600"
           >
-            <span data-translate="updateSystem">Update System</span>
+            <span data-translate="updateSystem">Update Service</span>
           </button>
         </div>
       </form>
@@ -1176,11 +1182,51 @@ const customCodePlaceholder = [
   const editModal = document.getElementById('edit-system-modal');
   const closeEditBtn = document.getElementById('close-edit-modal-btn');
   const cancelEditBtn = document.getElementById('cancel-edit-btn');
+  let editingTrafficMetric = null;
+  let latestTrafficMetrics = new Map();
+  const editText = (zh, en) => localStorage.getItem('preferred-language') === 'zh' ? zh : en;
+
+  // Match SaveAdminTraffic; zero usage is valid, but a missing cycle is not.
+  function canCalibrate(metric) {
+    return metric?.traffic_source === 'vnstat' && Boolean(metric.traffic_cycle_start && metric.traffic_cycle_end);
+  }
+
+  function updateTrafficReadiness() {
+    const ready = canCalibrate(editingTrafficMetric);
+    const status = document.getElementById('traffic-readiness');
+    status.dataset.ready = String(ready);
+    status.querySelector('span').textContent = ready ? editText('可以校准', 'Ready to calibrate') : editText('暂不可校准', 'Not ready yet');
+    document.getElementById('traffic-readiness-hint').textContent = ready
+      ? editText('月流量已就绪，可填写商家当前已用量。', 'Monthly data is ready. Enter your provider’s current usage.')
+      : editText('等待探针上报月流量，就绪后自动亮绿灯。其他设置可正常保存。', 'Waiting for monthly data. This turns green automatically when ready. Other settings can still be saved.');
+    const form = document.getElementById('edit-system-form');
+    form.elements['traffic_calibration'].disabled = !ready;
+    form.elements['traffic_calibration_unit'].disabled = !ready;
+  }
+
+  function setEditSubmitBusy(busy) {
+    const button = document.querySelector('#edit-system-form button[type="submit"]');
+    button.disabled = busy;
+    const label = button.querySelector('span');
+    label.dataset.translate = busy ? 'updatingSystem' : 'updateSystem';
+    label.textContent = busy ? editText('保存中…', 'Saving…') : editText('更新服务', 'Update Service');
+  }
+
+  function showEditError(message) {
+    const el = document.getElementById('edit-form-message');
+    el.className = 'text-sm text-red-500 dark:text-red-400';
+    el.setAttribute('role', 'alert');
+    el.textContent = message;
+    el.scrollIntoView({ block: 'nearest' });
+  }
 
   function openEditModal(system) {
     const form = document.getElementById('edit-system-form');
     
     if (form && editModal) {
+      editingTrafficMetric = latestTrafficMetrics.get(system.id) || system;
+      updateTrafficReadiness();
+      setEditSubmitBusy(false);
       // Fill form with system data (only Name, ID is hidden)
       form.elements['original-id'].value = system.id;
       form.elements['name'].value = system.name || '';
@@ -1236,6 +1282,7 @@ const customCodePlaceholder = [
   }
 
   function closeEditModal() {
+    editingTrafficMetric = null;
     closeModalWithAnimation(editModal, () => {
       const form = document.getElementById('edit-system-form');
       if (form) {
@@ -1250,8 +1297,7 @@ const customCodePlaceholder = [
         // Reset submit button
         const submitBtn = form.querySelector('button[type="submit"]');
         if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Update System';
+          setEditSubmitBusy(false);
         }
       }
     });
@@ -2218,6 +2264,14 @@ const customCodePlaceholder = [
 
   // Smart render with incremental updates
   async function renderSystems(data) {
+    if (Array.isArray(data)) {
+      latestTrafficMetrics = new Map(data.map(item => [item.id, item]));
+      if (editingTrafficMetric) {
+        const id = editingTrafficMetric.id;
+        editingTrafficMetric = latestTrafficMetrics.get(id) || { id };
+        updateTrafficReadiness();
+      }
+    }
     const container = document.getElementById('systems-list');
     if (!container) return;
 
@@ -3149,6 +3203,8 @@ const customCodePlaceholder = [
   if (editForm) {
     editForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (editForm.querySelector('button[type="submit"]').disabled) return;
+      document.getElementById('edit-form-message').classList.add('hidden');
       const formData = new FormData(editForm);
       const submitBtn = editForm.querySelector('button[type="submit"]');
       
@@ -3161,7 +3217,7 @@ const customCodePlaceholder = [
 
       // Validate
       if (!systemId || !systemName || systemId.trim() === '' || systemName.trim() === '') {
-        alert('Service Name is required');
+        showEditError(editText('请输入服务名称。', 'Enter a service name.'));
         return;
       }
 
@@ -3172,23 +3228,28 @@ const customCodePlaceholder = [
 
       const trafficLimitValue = trafficLimitInput === '' ? 0 : Number(trafficLimitInput);
       if (!Number.isFinite(trafficLimitValue) || trafficLimitValue < 0) {
-        alert(localStorage.getItem('preferred-language') === 'zh' ? '月流量额度必须是大于或等于 0 的数字' : 'Monthly traffic allowance must be a number greater than or equal to 0');
+        showEditError(editText('月流量额度必须是大于或等于 0 的数字。', 'Monthly traffic allowance must be a number greater than or equal to 0.'));
         return;
       }
       const trafficLimitBytes = Math.round(trafficLimitValue * (trafficLimitUnit === 'TB' ? 1000 ** 4 : 1000 ** 3));
-      const calibrationInput = String(formData.get('traffic_calibration') || '').trim();
+      // Disabled controls are excluded from FormData. Never silently drop a
+      // calibration entered before readiness changed while editing.
+      const calibrationInput = editForm.elements['traffic_calibration'].value.trim();
+      if (calibrationInput !== '' && !canCalibrate(editingTrafficMetric)) {
+        showEditError(editText('月流量尚未就绪，本次未保存。请等待绿灯后重试；如只修改其他设置，请重新打开窗口。', 'Monthly data is not ready. Nothing was saved. Wait for the green indicator, or reopen the dialog to edit other settings.'));
+        return;
+      }
       const calibrationBytes = Math.round(Number(calibrationInput) * (formData.get('traffic_calibration_unit') === 'TB' ? 1e12 : 1e9));
       const clearCalibration = formData.has('traffic_clear_calibration');
       if (!Number.isSafeInteger(trafficLimitBytes) || (calibrationInput !== '' && (!Number.isSafeInteger(calibrationBytes) || calibrationBytes < 0 || clearCalibration))) {
-        alert(localStorage.getItem('preferred-language') === 'zh' ? '请输入有效的流量数值；校准和清除不能同时选择。' : 'Enter a valid usage amount. Do not calibrate and clear at the same time.');
+        showEditError(editText('请输入有效的流量数值；校准和清除不能同时选择。', 'Enter a valid usage amount. Do not calibrate and clear at the same time.'));
         return;
       }
 
       // Disable submit button only after every client-side validation has
       // passed, otherwise an invalid allowance would leave the form stuck.
       if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Updating...';
+        setEditSubmitBusy(true);
       }
 
       const data = {
@@ -3227,12 +3288,19 @@ const customCodePlaceholder = [
           throw new Error(errorText || `HTTP ${res.status}`);
         }
       } catch (err) {
-        alert('Failed to update system: ' + err.message);
+        if (err.message.includes('monthly data is not ready')) {
+          editingTrafficMetric = { id: systemId };
+          updateTrafficReadiness();
+          showEditError(editText('月流量尚未就绪，本次未保存。请等待绿灯后再校准，已填写内容已保留。', 'Monthly data is not ready. Nothing was saved. Wait for the green indicator; your input has been kept.'));
+        } else if (err.message.includes('invalid traffic settings')) {
+          showEditError(editText('流量设置无效，请检查计费方式和校准数值后重试。', 'Invalid traffic settings. Check the billing method and calibration amount.'));
+        } else {
+          showEditError(editText('保存失败，请检查网络或登录状态后重试。', 'Could not save. Check your connection or sign-in status and try again.'));
+        }
       } finally {
         // Re-enable submit button
         if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Update System';
+          setEditSubmitBusy(false);
         }
       }
     });
@@ -4642,7 +4710,7 @@ const customCodePlaceholder = [
     'monthlyTrafficLimit': { en: 'Monthly traffic allowance', zh: '每月流量额度' },
     'monthlyTrafficLimitHint': { en: 'Used for vnStat monthly percentage; leave empty or 0 to show usage only.', zh: '用于计算 vnStat 月流量占比；留空或填 0 时仅显示已用流量。' },
     'cancel': { en: 'Cancel', zh: '取消' },
-    'updateSystem': { en: 'Update System', zh: '更新服务' },
+    'updateSystem': { en: 'Update Service', zh: '更新服务' },
     'areYouSureYouWantToDelete': { en: 'Are you sure you want to delete', zh: '您确定要删除' },
     'thisActionCannotBeUndone': { en: 'This action cannot be undone.', zh: '此操作无法撤销。' },
     'delete': { en: 'Delete', zh: '删除' },
@@ -4697,13 +4765,15 @@ const customCodePlaceholder = [
     'trafficDownloadOnly': { en: 'Download only', zh: '仅下载' },
     'trafficBoth': { en: 'Both', zh: '上传＋下载' },
     'trafficBillingHint': { en: 'Match your provider. Changing the billing method clears the previous calibration.', zh: '按商家的计费方式选择；切换方式会清除旧校准，可同时填写新用量。' },
-    'trafficCalibrationLabel': { en: 'Current-cycle usage calibration (optional)', zh: '本账期用量校准（选填）' },
+    'updatingSystem': { en: 'Saving…', zh: '保存中…' },
+    'trafficCalibrationLabel': { en: 'Usage calibration (optional)', zh: '用量校准（选填）' },
     'trafficCalibrationHint': { en: 'Enter the provider’s current usage, not an extra amount. Saved with Update service; subsequent traffic is added automatically. Expires next cycle. Leave blank to keep the current setting.', zh: '填写商家当前已用流量，不是额外增加量。点击“更新服务”保存，之后自动累加新增用量，下个账期失效；留空不修改。' },
     'trafficClearCalibration': { en: 'Clear the saved calibration', zh: '清除已保存的校准，恢复探针实测用量' },
     'installCommandHint': { en: 'Run on the monitored host. Choose root or sudo to match your terminal user. Contains a secret; do not share.', zh: '在被监控主机执行，按登录身份选择 root 或 sudo。命令含密钥，请勿分享。' },
   };
 
   function updateAdminTranslations() {
+    updateTrafficReadiness();
     const lang = localStorage.getItem('preferred-language') || 'en';
     
     // Update all elements with data-translate attribute
@@ -4759,6 +4829,13 @@ const customCodePlaceholder = [
 </script>
 
 <style is:global>
+  .traffic-calibration-card { margin-top: 16px; padding: 16px; border: 1px solid var(--ui-line); border-radius: 20px; background: var(--ui-inner); }
+  .traffic-calibration-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: var(--ui-ink); }
+  .traffic-readiness { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12px; color: var(--ui-muted); }
+  .traffic-readiness i { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #ef4444; }
+  .traffic-readiness[data-ready="true"] i { background: #10b981; }
+  .traffic-readiness-hint { margin: 8px 0 12px; color: var(--ui-muted); font-size: 12px; line-height: 1.65; }
+  #edit-traffic-calibration:disabled, #edit-system-form [name="traffic_calibration_unit"]:disabled { opacity: .5; cursor: not-allowed; }
   .admin-host-info { column-gap: 24px; }
   .admin-host-identity { flex-shrink: 1; min-width: 96px; max-width: 250px; }
   .admin-host-identity .system-name { display: block; min-height: 28px; line-height: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
